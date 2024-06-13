@@ -1,0 +1,36 @@
+{
+    // Disable auto import completion which tends to add lots of erroneous imports
+    "python.analysis.autoImportCompletions": false,
+    // Enable flake8 (and disable pylint)
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": false,
+    "python.linting.flake8Enabled": true,
+    // Bandit settings
+    "python.linting.banditEnabled": true,
+    "python.linting.banditArgs": [
+        // https://github.com/PyCQA/bandit/issues/603
+        "--configfile=${workspaceFolder}/bandit.yml"
+    ],
+    // Enable mypy
+    "python.linting.mypyEnabled": false,
+    // formatting (black and isort)
+    "python.formatting.provider": "black",
+    "editor.formatOnSave": true,
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        }
+    },
+    // Show ruler at end of line
+    "editor.rulers": [
+        120
+    ],
+    // Hide python cache files in the explorer side bar
+    "files.exclude": {
+        "**/*.pyc": {
+            "when": "$(basename).py"
+        },
+        "**/__pycache__": true,
+        "**/.pytest_cache": true
+    }
+}

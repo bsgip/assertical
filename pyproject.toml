@@ -1,0 +1,70 @@
+[tool.black]
+line-length = 120
+
+[tool.pytest.ini_options]
+pythonpath = ["src/"]
+testpaths = "tests"
+
+[tool.isort]
+profile = "black"
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]
+
+[tool.mypy]
+exclude = ["tests"]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+namespace_packages = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+
+[build-system]
+requires = ["setuptools >= 40.9.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "assertical"
+version = "0.0.1"
+description = "Assertical - a modular library for helping write (async) integration/unit tests for fastapi/sqlalchemy/postgres projects"
+authors = [{ name = "Battery Storage and Grid Integration Program" }]
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["test", "fastapi", "postgres", "sqlalchemy"]
+dependencies = ["pytest", "pytest-asyncio", "anyio", "httpx"]
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+
+    # Pick your license as you wish (see also "license" above)
+    "Framework :: FastAPI",
+    "License :: OSI Approved :: MIT License",
+
+    # Specify the Python versions you support here.
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+[project.urls]
+Homepage = "https://github.com/bsgip/assertical"
+
+[project.optional-dependencies]
+all = ["assertical[dev,fastapi,pandas,pydantic,postgres,xml]"]
+dev = ["bandit", "flake8", "mypy", "black", "coverage"]
+fastapi = ["fastapi", "asgi_lifespan"]
+pandas = ["pandas", "pandas_stubs"]
+pydantic = ["pydantic"]
+postgres = ["pytest-postgresql", "psycopg", "sqlalchemy>=2.0.0"]
+xml = ["pydantic_xml[lxml]"]
+
+[tool.setuptools.package-data]
+"assertical" = ["py.typed"]
