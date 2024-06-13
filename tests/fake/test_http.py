@@ -1,10 +1,8 @@
-from http import HTTPMethod
-
 import pytest
 from httpx import Response
 
 from assertical.asserts.type import assert_list_type
-from assertical.fake.http import LoggedRequest, MockedAsyncClient
+from assertical.fake.http import HTTPMethod, LoggedRequest, MockedAsyncClient
 
 
 class MyCustomException(Exception):

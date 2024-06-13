@@ -70,7 +70,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install .[dev]
+          pip install .[all]
 
       - name: Add mypy annotator
         uses: pr-annotators/mypy-pr-annotator@v1.0.0
