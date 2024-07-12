@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import pandas as pd
 import pytest
@@ -33,7 +33,9 @@ EMPTY_DF = pd.DataFrame({"col_int": [], "col_str": [], "col_other": []})
         (INDEXED_DF, None, "my_index_DNE", False),
     ],
 )
-def test_assert_dataframe(obj: Any, assert_has_data: Optional[bool], index: Optional[list | str], assert_pass: bool):
+def test_assert_dataframe(
+    obj: Any, assert_has_data: Optional[bool], index: Optional[Union[list, str]], assert_pass: bool
+):
     if assert_pass:
         assert_dataframe(obj, assert_has_data, index)
     else:

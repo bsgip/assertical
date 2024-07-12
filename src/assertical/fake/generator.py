@@ -3,8 +3,12 @@ from dataclasses import dataclass, fields, is_dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from types import NoneType
 from typing import Any, Callable, Optional, Union, get_args, get_origin, get_type_hints
+
+try:
+    from types import NoneType
+except ImportError:
+    NoneType = type(None)  # type: ignore
 
 try:
     from pydantic import BaseModel
@@ -293,7 +297,7 @@ def generate_class_instance(  # noqa: C901
         if is_list:
             member_type = get_args(optional_arg_type)[0] if is_optional else get_args(member_type)[0]
 
-        # This is an SQL Alchemy specific quirk - hopefully we don't need too many of these special cases
+        # This is a work around for SQLAlchemy forward references - hopefully we don't need many of these special cases
         #
         # if we are passed a string name of a type (such as SQL Alchemy relationships are want to do)
         # eg - list["ChildType"] we need to be able to resolve that
@@ -301,10 +305,10 @@ def generate_class_instance(  # noqa: C901
         # but I haven't yet figured it out.
         if t_generatable_base == DeclarativeBase:
             if isinstance(member_type, str):
-                member_type = DeclarativeBase.registry._class_registry[member_type]  # type: ignore
+                member_type = t.registry._class_registry[member_type]  # type: ignore
         if t_generatable_base == DeclarativeBaseNoMeta:
             if isinstance(member_type, str):
-                member_type = DeclarativeBaseNoMeta.registry._class_registry[member_type]  # type: ignore
+                member_type = t.registry._class_registry[member_type]  # type: ignore
 
         generated_value: Any = None
         if is_generatable_type(member_type):
