@@ -6,9 +6,9 @@ from enum import Enum
 from typing import Any, Callable, Optional, Union, get_args, get_origin, get_type_hints
 
 try:
-    from types import NoneType  # type: ignore
+    from types import NoneType
 except ImportError:
-    NoneType = type(None)
+    NoneType = type(None)  # type: ignore
 
 try:
     from pydantic import BaseModel
