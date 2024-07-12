@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Optional
 
 from asgi_lifespan import LifespanManager
@@ -6,6 +7,7 @@ from httpx import ASGITransport, AsyncClient
 from httpx._types import AuthTypes
 
 
+@asynccontextmanager
 async def start_app_with_client(
     app: FastAPI, client_auth: Optional[AuthTypes] = None
 ) -> AsyncGenerator[AsyncClient, None]:
