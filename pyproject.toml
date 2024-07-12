@@ -61,7 +61,7 @@ Homepage = "https://github.com/bsgip/assertical"
 all = ["assertical[dev,fastapi,pandas,pydantic,postgres,xml]"]
 dev = ["bandit", "flake8", "mypy", "black", "coverage"]
 fastapi = ["fastapi", "asgi_lifespan"]
-pandas = ["pandas", "pandas_stubs"]
+pandas = ["pandas", "pandas_stubs", "numpy"]
 pydantic = ["pydantic"]
 postgres = ["pytest-postgresql", "psycopg", "sqlalchemy>=2.0.0"]
 xml = ["pydantic_xml[lxml]"]
