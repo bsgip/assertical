@@ -1,6 +1,6 @@
 import inspect
 from dataclasses import dataclass, fields, is_dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Optional, Union, get_args, get_origin, get_type_hints
@@ -491,6 +491,7 @@ PRIMITIVE_VALUE_GENERATORS: dict[type, Callable[[int], Any]] = {
     bool: lambda seed: (seed % 2) == 0,
     Decimal: lambda seed: Decimal(seed),
     datetime: lambda seed: datetime(2010, 1, 1, tzinfo=timezone.utc) + timedelta(days=seed) + timedelta(seconds=seed),
+    time: lambda seed: time(seed % 24, seed % 60, (seed + 1) % 60),
 }
 
 # the set of all generators (target: type, kwargs: dict[str, Any) -> class instance (keyed by the base type of
