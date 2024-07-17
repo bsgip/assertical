@@ -777,3 +777,34 @@ def test_generate_dataclass_basic_values():
     assert p3.myOtherInt is not None
     assert p3.myStr is not None
     assert p3.myList is not None
+
+
+def test_generate_kwargs():
+    p1: ParentDataclass = generate_class_instance(ParentDataclass, seed=101, myInt=8587231, myStr="My Custom Str")
+    assert p1.myInt == 8587231
+    assert p1.myOptInt is not None
+    assert p1.myOtherInt is not None
+    assert p1.myStr == "My Custom Str"
+    assert p1.myDate is not None
+    assert p1.myList is not None
+    assert p1.myInt != p1.myOtherInt, "Checking that fields of the same type get unique values"
+
+    p2: ParentDataclass = generate_class_instance(ParentDataclass, seed=202, myInt=8587231, myStr="My Custom Str")
+    assert p2.myInt == 8587231
+    assert p2.myOptInt is not None
+    assert p2.myOtherInt is not None
+    assert p2.myStr == "My Custom Str"
+    assert p2.myDate is not None
+    assert p2.myList is not None
+    assert p2.myInt != p2.myOtherInt, "Checking that fields of the same type get unique values"
+
+    assert p1.myOptInt != p2.myOptInt, "p1 should differ from p2 (for fields not under kwargs)"
+    assert p1.myOtherInt != p2.myOtherInt, "p1 should differ from p2 (for fields not under kwargs)"
+    assert p1.myDate != p2.myDate, "p1 should differ from p2 (for fields not under kwargs)"
+    assert p1.myList != p2.myList, "p1 should differ from p2 (for fields not under kwargs)"
+
+    # Add a type on "myDate" that should raise an error
+    with pytest.raises(Exception):
+        generate_class_instance(
+            ParentDataclass, seed=202, myInt=8587231, myStr="My Custom Str", myDates=datetime(2022, 11, 10)
+        )

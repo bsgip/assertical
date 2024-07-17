@@ -19,7 +19,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install .[dev,test]
+          pip install .[all]
 
       - name: Coverage (source branch)
         run: |
@@ -37,7 +37,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install .[dev,test]
+          pip install .[all]
 
       - name: Coverage (target branch)
         id: target_cov
