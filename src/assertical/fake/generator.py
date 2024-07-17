@@ -158,7 +158,7 @@ def get_first_generatable_primitive(t: type, include_optional: bool) -> Optional
 def is_passthrough_type(t: type) -> bool:
     """This is for catching types like Mapped[int] which mainly just decorate the generic type argument
     without providing any useful information for the purposes of simple reading/writing values"""
-    return get_origin(t) == Mapped
+    return Mapped is not None and get_origin(t) == Mapped
 
 
 def remove_passthrough_type(t: type) -> type:
@@ -233,8 +233,9 @@ def generate_class_instance(  # noqa: C901
     seed: int = 1,
     optional_is_none: bool = False,
     generate_relationships: bool = False,
-    visited_types_with_sources: Optional[dict[type, list[Optional[tuple[str, type]]]]] = None,
-    source_variable: Optional[tuple[str, type]] = None,
+    _visited_types_with_sources: Optional[dict[type, list[Optional[tuple[str, type]]]]] = None,
+    _source_variable: Optional[tuple[str, type]] = None,
+    **kwargs: Any,
 ) -> Any:
     """Given a child class of a key to CLASS_INSTANCE_GENERATORS - generate an instance of that class
     with all properties being assigned unique values based off of seed. The values will match type hints
@@ -246,21 +247,27 @@ def generate_class_instance(  # noqa: C901
 
     If the type cannot be instantiated due to missing type hints / other info exceptions will be raised
 
-    visited_types_with_sources should not be specified - it's for internal use only
-    source_variable should not be specified - it's for internal use only"""
+    Any additional specified "kwargs" will override the generated members. Eg generate_class_instance(Foo, my_arg="123")
+    will generate a new instance of Foo as per normal but the named member "my_arg" will have value "123". Please note
+    that this will change the way remaining values are allocated such that:
+        generate_class_instance(Foo, my_arg="123") != (generate_class_instance(Foo).my_arg = "123")
+    Specifying an invalid member name will raise an Exception
+
+    _visited_types_with_sources should not be specified - it's for internal use only
+    _source_variable should not be specified - it's for internal use only"""
     t = remove_passthrough_type(t)
 
     # stop back references from infinite looping
-    if visited_types_with_sources is None:
-        visited_types_with_sources = {}
-    sources = visited_types_with_sources.get(t, None)
-    if sources and (None in sources or source_variable in sources):
+    if _visited_types_with_sources is None:
+        _visited_types_with_sources = {}
+    sources = _visited_types_with_sources.get(t, None)
+    if sources and (None in sources or _source_variable in sources):
         # If we've looped back to the original type OR we've visited this type from the same source - abort!
         # Same source being the same member from the same type
         return None
     if sources is None:
-        visited_types_with_sources[t] = sources = []
-    sources.append(source_variable)
+        _visited_types_with_sources[t] = sources = []
+    sources.append(_source_variable)
 
     # We can only generate class instances of classes that inherit from a known base
     t_generatable_base = get_generatable_class_base(t)
@@ -273,7 +280,15 @@ def generate_class_instance(  # noqa: C901
     # Those values can be basic primitive values or optionally populated
     current_seed = seed
     values: dict[str, Any] = {}
+    kwargs_references: set[str] = set()  # For making sure we use all kwargs values to catch typos
     for member_name in CLASS_MEMBER_FETCHERS[t_generatable_base](t):
+
+        # If there is a custom override for a member - apply it before going any further
+        if member_name in kwargs:
+            values[member_name] = kwargs[member_name]
+            kwargs_references.add(member_name)
+            continue
+
         # Skip members that are private OR that are public members of the base class
         if not is_member_public(member_name):
             continue
@@ -332,8 +347,8 @@ def generate_class_instance(  # noqa: C901
                     seed=current_seed,
                     optional_is_none=optional_is_none,
                     generate_relationships=generate_relationships,
-                    visited_types_with_sources=visited_types_with_sources,
-                    source_variable=(member_name, t),
+                    _visited_types_with_sources=_visited_types_with_sources,
+                    _source_variable=(member_name, t),
                 )
 
                 # None can be generated when Type A has child B that includes a backreference to A. in these
@@ -353,6 +368,10 @@ def generate_class_instance(  # noqa: C901
             values[member_name] = [] if empty_list else [generated_value]
         else:
             values[member_name] = generated_value
+
+    expected_kwargs_references = set(kwargs.keys())
+    if kwargs_references != expected_kwargs_references:
+        raise Exception(f"The following kwargs were unused {expected_kwargs_references.difference(kwargs_references)}")
 
     return CLASS_INSTANCE_GENERATORS[t_generatable_base](t, values)
 
