@@ -1,6 +1,6 @@
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time
 from enum import IntEnum, IntFlag, auto
 from typing import List, Optional, Union
 
@@ -179,6 +179,7 @@ class ParentDataclass:
     myDate: datetime
     myStr: str
     myList: list[int]
+    myTime: time
 
 
 def test_generate_value():
@@ -754,6 +755,7 @@ def test_generate_dataclass_basic_values():
     assert p1.myStr is not None
     assert p1.myDate is not None
     assert p1.myList is not None
+    assert p1.myTime is not None
     assert p1.myInt != p1.myOtherInt, "Checking that fields of the same type get unique values"
 
     # create a new instance with a different seed
@@ -765,18 +767,21 @@ def test_generate_dataclass_basic_values():
     assert p2.myStr is not None
     assert p2.myDate is not None
     assert p2.myList is not None
+    assert p2.myTime is not None
     assert p2.myInt != p2.myOtherInt, "Checking that fields of the same type get unique values"
 
     assert p1.myInt != p2.myInt, "Checking that different seed numbers yields different results"
     assert p1.myOtherInt != p2.myOtherInt, "Checking that different seed numbers yields different results"
     assert p1.myStr != p2.myStr, "Checking that different seed numbers yields different results"
     assert p1.myList != p2.myList, "Checking that different seed numbers yields different results"
+    assert p1.myTime != p2.myTime, "Checking that different seed numbers yields different results"
 
     p3: ParentDataclass = generate_class_instance(ParentDataclass, seed=456, optional_is_none=True)
     assert p3.myOptInt is None, "This field is optional and optional_is_none=True"
     assert p3.myOtherInt is not None
     assert p3.myStr is not None
     assert p3.myList is not None
+    assert p3.myTime is not None
 
 
 def test_generate_kwargs():
