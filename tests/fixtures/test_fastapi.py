@@ -32,9 +32,16 @@ def generate_test_app():
     return test_app
 
 
+@pytest.mark.parametrize("multi_iteration", [1, 2, 3])
 @pytest.mark.anyio
-async def test_uvicorn_running_app():
+async def test_uvicorn_running_app(multi_iteration):
     """Tests that start_uvicorn_server runs a test app and calls all lifespan managers"""
+
+    # Why are we running this over multiple iterations? Because we hit an issue with python3.10 socket impl that when
+    # executed sequentially - the resulting data varied and caused our code to fail. This is to cover that particular
+    # quirk - We have a fix to avoid this now but this multi_iteration stuff is a safety against future regressions
+    print(multi_iteration)
+
     app = generate_test_app()
 
     async with start_uvicorn_server(app) as base_uri:
