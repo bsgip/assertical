@@ -40,7 +40,7 @@ def environment_snapshot() -> Generator[dict[str, str], None, None]:
     # Reset environment to snapshot
     # Firstly iterate the current environment to see what we need to rectify
     visited_variables = set()
-    snapshot: dict[str, str] = dict(os.environ.items())
+    snapshot = dict(os.environ.items())
     for k, v in os.environ.items():
         visited_variables.add(k)
 
