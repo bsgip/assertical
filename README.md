@@ -131,6 +131,54 @@ def test_my_custom_test_2(preserved_environment):
     # Do test body
 ```
 
+### Running Testing FastAPI Apps
+
+FastAPI (or ASGI apps) can be loaded for integration testing in two ways with Assertical:
+1. Creating a lightweight httpx.AsyncClient wrapper around the app instance
+1. Running a full uvicorn instance
+
+#### AsyncClient Wrapper
+
+`assertical.fixtures.fastapi.start_app_with_client` will act as an async context manager that can wrap an ASGI app instance and yield a  `httpx.AsyncClient` that will communicate directly with that app instance.
+
+Eg: This fixture will start an app instance and tests can depend on it to start up a fresh app instance for every test
+```
+@pytest.fixture
+async def custom_test_client():
+    app: FastApi = generate_app() # This is just a reference to a fully constructed instance of your FastApi app    
+    async with start_app_with_client(app) as c:
+        yield c  # c is an instance of httpx.AsyncClient
+
+
+@pytest.mark.anyio
+async def test_thing(custom_test_client: AsyncClient):
+    response = await custom_test_client.get("/my_endpoint")
+    assert response.status == 200
+```
+
+#### Full uvicorn instance
+
+`assertical.fixtures.fastapi.start_uvicorn_server` will behave similar to the above `start_app_with_client` but it will start a full running instance of uvicorn that will tear down once the context manager is exited.
+
+This can be useful if you need to not just test the ASGI behavior of the app, but also how it interacts with a "real" uvicorn instance. Perhaps your app has middleware playing around with the underlying starlette functionality?
+
+Eg: This fixture will start an app instance (listening on a fixed address) and will return the base URI of that instance
+```
+@pytest.fixture
+async def custom_test_uri():
+    app: FastApi = generate_app() # This is just a reference to a fully constructed instance of your FastApi app    
+    async with start_uvicorn_server(app) as c:
+        yield c  # c is uri like "http://127.0.0.1:12345"
+
+
+@pytest.mark.anyio
+async def test_thing(custom_test_uri: str):
+    client = AsyncClient()
+    response = await client.get(custom_test_uri + "/my_endpoint")
+    assert response.status == 200
+```
+
+
 ### Assertion utilities
 
 #### Generator assertical.asserts.generator.*

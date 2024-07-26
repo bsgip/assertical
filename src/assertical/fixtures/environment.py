@@ -32,25 +32,24 @@ def environment_snapshot() -> Generator[dict[str, str], None, None]:
     """
 
     # Take a snapshot
-    snapshot: dict[str, str] = dict(os.environ.items())
+    original_snapshot: dict[str, str] = dict(os.environ.items())
 
     # Return snapshot but mainly wait until the context is exited
-    yield snapshot
+    yield original_snapshot
 
     # Reset environment to snapshot
     # Firstly iterate the current environment to see what we need to rectify
     visited_variables = set()
-    snapshot: dict[str, str] = dict(os.environ.items())
     for k, v in os.environ.items():
         visited_variables.add(k)
 
-        old_value = snapshot.get(k, None)
+        old_value = original_snapshot.get(k, None)
         if v != old_value:
             update_environment_variable(k, old_value)
 
     # Next iterate our stored snapshot to find keys that may have been deleted and didn't appear in our previous
     # enumeration
-    for k, v in snapshot.items():
+    for k, v in original_snapshot.items():
         if k in visited_variables:
             continue
 
