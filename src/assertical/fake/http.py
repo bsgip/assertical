@@ -9,7 +9,7 @@ from httpx._types import HeaderTypes, RequestContent
 
 # HTTPMethod is only defined in python >= 3.11
 try:
-    from http import HTTPMethod
+    from http import HTTPMethod  # type: ignore
 except ImportError:
 
     class HTTPMethod(Enum):  # type: ignore
