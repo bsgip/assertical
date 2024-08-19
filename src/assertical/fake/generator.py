@@ -233,8 +233,7 @@ def generate_class_instance(  # noqa: C901
     seed: int = 1,
     optional_is_none: bool = False,
     generate_relationships: bool = False,
-    _visited_types_with_sources: Optional[dict[type, list[Optional[tuple[str, type]]]]] = None,
-    _source_variable: Optional[tuple[str, type]] = None,
+    _visited_type_stack: Optional[list[type]] = None,
     **kwargs: Any,
 ) -> Any:
     """Given a child class of a key to CLASS_INSTANCE_GENERATORS - generate an instance of that class
@@ -253,21 +252,15 @@ def generate_class_instance(  # noqa: C901
         generate_class_instance(Foo, my_arg="123") != (generate_class_instance(Foo).my_arg = "123")
     Specifying an invalid member name will raise an Exception
 
-    _visited_types_with_sources should not be specified - it's for internal use only
-    _source_variable should not be specified - it's for internal use only"""
+    _visited_type_stack should not be specified - it's for internal use only"""
     t = remove_passthrough_type(t)
 
     # stop back references from infinite looping
-    if _visited_types_with_sources is None:
-        _visited_types_with_sources = {}
-    sources = _visited_types_with_sources.get(t, None)
-    if sources and (None in sources or _source_variable in sources):
-        # If we've looped back to the original type OR we've visited this type from the same source - abort!
-        # Same source being the same member from the same type
+    if _visited_type_stack is None:
+        _visited_type_stack = []
+    if t in _visited_type_stack:
         return None
-    if sources is None:
-        _visited_types_with_sources[t] = sources = []
-    sources.append(_source_variable)
+    _visited_type_stack.append(t)
 
     # We can only generate class instances of classes that inherit from a known base
     t_generatable_base = get_generatable_class_base(t)
@@ -347,8 +340,7 @@ def generate_class_instance(  # noqa: C901
                     seed=current_seed,
                     optional_is_none=optional_is_none,
                     generate_relationships=generate_relationships,
-                    _visited_types_with_sources=_visited_types_with_sources,
-                    _source_variable=(member_name, t),
+                    _visited_type_stack=_visited_type_stack,
                 )
 
                 # None can be generated when Type A has child B that includes a backreference to A. in these
@@ -373,6 +365,7 @@ def generate_class_instance(  # noqa: C901
     if kwargs_references != expected_kwargs_references:
         raise Exception(f"The following kwargs were unused {expected_kwargs_references.difference(kwargs_references)}")
 
+    _visited_type_stack.pop()  # When we finish generating a type, allow recursion back into that type
     return CLASS_INSTANCE_GENERATORS[t_generatable_base](t, values)
 
 
