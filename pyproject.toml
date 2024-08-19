@@ -30,7 +30,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "assertical"
-version = "0.0.1"
+version = "0.0.2"
 description = "Assertical - a modular library for helping write (async) integration/unit tests for fastapi/sqlalchemy/postgres projects"
 authors = [{ name = "Battery Storage and Grid Integration Program" }]
 readme = "README.md"
@@ -60,7 +60,7 @@ Homepage = "https://github.com/bsgip/assertical"
 [project.optional-dependencies]
 all = ["assertical[dev,fastapi,pandas,pydantic,postgres,xml]"]
 dev = ["bandit", "flake8", "mypy", "black", "coverage"]
-fastapi = ["fastapi", "asgi_lifespan"]
+fastapi = ["fastapi[standard]", "asgi_lifespan", "uvicorn"]
 pandas = ["pandas", "pandas_stubs", "numpy"]
 pydantic = ["pydantic"]
 postgres = ["pytest-postgresql", "psycopg", "sqlalchemy>=2.0.0"]
