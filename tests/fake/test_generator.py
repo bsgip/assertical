@@ -2,7 +2,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from enum import IntEnum, IntFlag, auto
-from typing import List, Optional, Union
+from typing import Generator, List, Optional, Union
 
 import pytest
 from pydantic_xml import BaseXmlModel, element
@@ -24,9 +24,12 @@ from sqlalchemy.orm import (
 )
 
 from assertical.asserts.generator import assert_class_instance_equality
+from assertical.asserts.type import assert_list_type
 from assertical.fake.generator import (
+    PropertyGenerationDetails,
     check_class_instance_equality,
     clone_class_instance,
+    enumerate_class_properties,
     generate_class_instance,
     generate_value,
     get_enum_type,
@@ -817,3 +820,80 @@ def test_generate_kwargs():
         generate_class_instance(
             ParentDataclass, seed=202, myInt=8587231, myStr="My Custom Str", myDates=datetime(2022, 11, 10)
         )
+
+
+@pytest.mark.parametrize(
+    "t, expected",
+    [
+        (SiblingXmlClass, [PropertyGenerationDetails("siblingStr", StringExtension, str, True, False, False)]),
+        (
+            XmlClass,
+            [
+                PropertyGenerationDetails("myInt", Optional[FurtherIntExtension], int, True, True, False),
+                PropertyGenerationDetails("myStr", StringExtension, str, True, False, False),
+                PropertyGenerationDetails("myChildren", list[ChildXmlClass], ChildXmlClass, False, False, True),
+                PropertyGenerationDetails("mySibling", SiblingXmlClass, SiblingXmlClass, False, False, False),
+                PropertyGenerationDetails(
+                    "myOptionalSibling", Optional[SiblingXmlClass], SiblingXmlClass, False, True, False
+                ),
+            ],
+        ),
+        (
+            ParentClass,
+            [
+                PropertyGenerationDetails("parent_id", Mapped[int], int, True, False, False),
+                PropertyGenerationDetails("name", Mapped[str], str, True, False, False),
+                PropertyGenerationDetails("created", Mapped[datetime], datetime, True, False, False),
+                PropertyGenerationDetails("deleted", Mapped[datetime], datetime, True, False, False),
+                PropertyGenerationDetails("disabled", Mapped[bool], bool, True, False, False),
+                PropertyGenerationDetails("total", Mapped[float], float, True, False, False),
+                PropertyGenerationDetails("children", Mapped[list[ChildClass]], ChildClass, False, False, True),
+            ],
+        ),
+        (
+            ChildClass,
+            [
+                PropertyGenerationDetails("child_id", Mapped[int], int, True, False, False),
+                PropertyGenerationDetails("parent_id", Mapped[int], int, True, False, False),
+                PropertyGenerationDetails("name", Mapped[str], str, True, False, False),
+                PropertyGenerationDetails("long_name", Mapped[Optional[str]], str, True, True, False),
+                PropertyGenerationDetails("created_at", Mapped[datetime], datetime, True, False, False),
+                PropertyGenerationDetails("deleted_at", Mapped[Optional[datetime]], datetime, True, True, False),
+                PropertyGenerationDetails("flags", Mapped[CustomFlags], CustomFlags, True, False, False),
+                PropertyGenerationDetails(
+                    "optional_flags", Mapped[Optional[CustomFlags]], CustomFlags, True, True, False
+                ),
+                PropertyGenerationDetails("parent", Mapped[ParentClass], ParentClass, False, False, False),
+            ],
+        ),
+        (
+            ClassWithNoMeta,
+            [
+                PropertyGenerationDetails("my_id", Mapped[int], int, True, False, False),
+                PropertyGenerationDetails("name", Mapped[str], str, True, False, False),
+                PropertyGenerationDetails("created", Mapped[datetime], datetime, True, False, False),
+                PropertyGenerationDetails("deleted", Mapped[datetime], datetime, True, False, False),
+                PropertyGenerationDetails("disabled", Mapped[bool], bool, True, False, False),
+                PropertyGenerationDetails("total", Mapped[float], float, True, False, False),
+            ],
+        ),
+    ],
+)
+def test_enumerate_class_properties(t: type, expected: list[PropertyGenerationDetails]):
+    """Tests the enumerate_class_properties outputs against known classes of different configuration"""
+
+    iter = enumerate_class_properties(t)
+    assert isinstance(iter, Generator)
+
+    sorted_actual = list(sorted(iter, key=lambda n: n.name))
+    assert_list_type(PropertyGenerationDetails, sorted_actual, count=len(expected))
+
+    sorted_expected = list(sorted(expected, key=lambda n: n.name))
+    if sys.version_info < (3, 11):
+        # Forward string references don't dereference as nicely under older python version
+        # so we have to hamstring the test for these
+        for a, e in zip(sorted_actual, sorted_expected):
+            if not e.is_primitive_type:
+                e.declared_type = a.declared_type
+
+    assert sorted_actual == sorted_expected

@@ -3,7 +3,17 @@ from dataclasses import dataclass, fields, is_dataclass
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Optional, Union, get_args, get_origin, get_type_hints
+from typing import (
+    Any,
+    Callable,
+    Generator,
+    Optional,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 try:
     from types import NoneType
@@ -26,6 +36,35 @@ except ImportError:
     DeclarativeBase = None  # type: ignore
     DeclarativeBaseNoMeta = None  # type: ignore
     Mapped = None  # type: ignore
+
+
+@dataclass
+class PropertyGenerationDetails:
+    """Details about a property on a class/type that can be generated"""
+
+    name: str  # The property name
+
+    # The raw type declared on property
+    # If None, then there has been an error resolving the type for this property.
+    declared_type: Optional[type]
+
+    # The type to generate for this property. For basic properties this will match the type hint on the property
+    # For list properties, it will be the element type
+    # For optional properties, it will be the non optional part of the Optional Union eg Optional[str] -> str
+    # If None, then there has been an error resolving the type for this property.
+    type_to_generate: Optional[type]
+
+    # If true, the property can be generate via PRIMITIVE_VALUE_GENERATORS
+    # Only valid if type_to_generate is not None
+    is_primitive_type: bool
+
+    # If True, the property supports "None" as a valid value
+    # Only valid if type_to_generate is not None
+    is_optional: bool
+
+    # If True, the property has a type hint like list[type_to_generate]
+    # Only valid if type_to_generate is not None
+    is_list: bool
 
 
 @dataclass
@@ -228,6 +267,80 @@ def is_member_public(member_name: str) -> bool:
     return len(member_name) > 0 and member_name[0] != "_"
 
 
+def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, None, None]:
+    """Iterates through type t's properties returning the PropertyGenerationDetails for each discovered property.
+
+    Only "public" properties that don't exist on the BaseType will be returned
+
+    Will return (name, type, ) noting that:
+        name: Will be a str
+        type_for_name: May be None if the type hint can't be resolved, will be a type otherwise"""
+
+    # We can only generate class instances of classes that inherit from a known base
+    t_generatable_base = get_generatable_class_base(t)
+    if t_generatable_base is None:
+        raise Exception(f"Type {t} does not inherit from one of {CLASS_INSTANCE_GENERATORS.keys()}")
+
+    type_hints = get_type_hints(t)
+
+    for member_name in CLASS_MEMBER_FETCHERS[t_generatable_base](t):
+
+        # Skip members that are private OR that are public members of the base class
+        if not is_member_public(member_name):
+            continue
+        if member_name in BASE_CLASS_PUBLIC_MEMBERS[t_generatable_base]:
+            continue
+
+        declared_type: Optional[type] = None
+        type_to_generate: Optional[type] = None
+        is_list: bool = False
+        is_optional: bool = False
+        is_primitive: bool = False
+        if member_name in type_hints:
+            declared_type = cast(type, type_hints[member_name])
+            member_type = remove_passthrough_type(declared_type)
+            optional_arg_type = get_optional_type_argument(member_type)
+            is_optional = optional_arg_type is not None
+            if is_optional:
+                is_list = get_origin(optional_arg_type) == list
+            else:
+                is_list = get_origin(member_type) == list
+            if is_list:
+                member_type = get_args(optional_arg_type)[0] if is_optional else get_args(member_type)[0]
+
+            # Work around for SQLAlchemy forward references - hopefully we don't need many of these special cases
+            #
+            # if we are passed a string name of a type (such as SQL Alchemy relationships are want to do)
+            # eg - list["ChildType"] we need to be able to resolve that
+            # Currently we're digging around in the guts of the Base registry - there maybe an official way to do this?
+            if t_generatable_base == DeclarativeBase:
+                if isinstance(member_type, str):
+                    member_type = t.registry._class_registry[member_type]  # type: ignore
+            if t_generatable_base == DeclarativeBaseNoMeta:
+                if isinstance(member_type, str):
+                    member_type = t.registry._class_registry[member_type]  # type: ignore
+
+            if is_generatable_type(member_type):
+                type_to_generate = get_first_generatable_primitive(member_type, include_optional=False)
+                assert (
+                    type_to_generate is not None
+                ), f"Error generating member {member_name}. Couldn't find type for {member_type}"
+                is_primitive = True
+            elif get_generatable_class_base(member_type) is not None:
+                type_to_generate = optional_arg_type if is_optional else member_type
+            else:
+                type_to_generate = None
+
+        yield PropertyGenerationDetails(
+            name=member_name,
+            declared_type=declared_type,
+            type_to_generate=type_to_generate,
+            is_primitive_type=is_primitive,
+            is_optional=is_optional,
+            is_list=is_list,
+        )
+
+
 def generate_class_instance(  # noqa: C901
     t: type,
     seed: int = 1,
@@ -267,76 +380,43 @@ def generate_class_instance(  # noqa: C901
     if t_generatable_base is None:
         raise Exception(f"Type {t} does not inherit from one of {CLASS_INSTANCE_GENERATORS.keys()}")
 
-    type_hints = get_type_hints(t)
-
     # We will be creating a dict of property names and their generated values
     # Those values can be basic primitive values or optionally populated
     current_seed = seed
     values: dict[str, Any] = {}
     kwargs_references: set[str] = set()  # For making sure we use all kwargs values to catch typos
-    for member_name in CLASS_MEMBER_FETCHERS[t_generatable_base](t):
+
+    for member in enumerate_class_properties(t):
 
         # If there is a custom override for a member - apply it before going any further
-        if member_name in kwargs:
-            values[member_name] = kwargs[member_name]
-            kwargs_references.add(member_name)
+        if member.name in kwargs:
+            values[member.name] = kwargs[member.name]
+            kwargs_references.add(member.name)
             continue
 
-        # Skip members that are private OR that are public members of the base class
-        if not is_member_public(member_name):
-            continue
-        if member_name in BASE_CLASS_PUBLIC_MEMBERS[t_generatable_base]:
-            continue
-
-        if member_name not in type_hints:
-            raise Exception(f"Type {t} has property {member_name} that is missing a type hint")
-
-        # We generate lists the same as single values (we just wrap the results in a list)
-        # keep track of the list state / element type before generating
-        member_type = remove_passthrough_type(type_hints[member_name])
-        optional_arg_type = get_optional_type_argument(member_type)
-        is_optional = optional_arg_type is not None
-        is_list = False
-        if is_optional:
-            is_list = get_origin(optional_arg_type) == list
-        else:
-            is_list = get_origin(member_type) == list
-        empty_list: bool = False  # if True - use an empty list
-        if is_list:
-            member_type = get_args(optional_arg_type)[0] if is_optional else get_args(member_type)[0]
-
-        # This is a work around for SQLAlchemy forward references - hopefully we don't need many of these special cases
-        #
-        # if we are passed a string name of a type (such as SQL Alchemy relationships are want to do)
-        # eg - list["ChildType"] we need to be able to resolve that
-        # Currently we're digging around in the guts of the Base registry - there might be an official way to do this
-        # but I haven't yet figured it out.
-        if t_generatable_base == DeclarativeBase:
-            if isinstance(member_type, str):
-                member_type = t.registry._class_registry[member_type]  # type: ignore
-        if t_generatable_base == DeclarativeBaseNoMeta:
-            if isinstance(member_type, str):
-                member_type = t.registry._class_registry[member_type]  # type: ignore
+        if member.type_to_generate is None:
+            raise Exception(
+                f"Type {t} has property {member.name} with type {member.declared_type} that cannot be generated"
+            )
 
         generated_value: Any = None
-        if is_generatable_type(member_type):
-            primitive_type = get_first_generatable_primitive(member_type, include_optional=True)
-            assert (
-                primitive_type is not None
-            ), f"Error generating member {member_name}. Couldn't find type for {member_type}"
-            generated_value = generate_value(primitive_type, seed=current_seed, optional_is_none=optional_is_none)
+        is_list: bool = member.is_list
+        empty_list: bool = False
+        if member.is_primitive_type:
+            if optional_is_none and member.is_optional:
+                generated_value = None
+            else:
+                generated_value = generate_value(
+                    member.type_to_generate, seed=current_seed, optional_is_none=optional_is_none
+                )
             current_seed += 1
-        elif get_generatable_class_base(member_type) is not None:
-            if is_optional and optional_is_none:
+        else:
+            if optional_is_none and member.is_optional:
                 generated_value = None
                 is_list = False
             elif generate_relationships:
-                relationship_type = optional_arg_type if is_optional else member_type
-                assert (
-                    relationship_type is not None
-                ), f"Error generating member {member_name}. Couldn't find type for relationship {relationship_type}"
                 generated_value = generate_class_instance(
-                    relationship_type,
+                    member.type_to_generate,
                     seed=current_seed,
                     optional_is_none=optional_is_none,
                     generate_relationships=generate_relationships,
@@ -352,14 +432,11 @@ def generate_class_instance(  # noqa: C901
                 empty_list = True
                 generated_value = None
             current_seed += 1000  # Rather than calculating how many seed values were utilised - set it arbitrarily high
-        else:
-            pretty_type_str = f"list[{member_type}]" if is_list else member_type
-            raise Exception(f"Type {t} has property {member_name} with type {pretty_type_str} that cannot be generated")
 
         if is_list:
-            values[member_name] = [] if empty_list else [generated_value]
+            values[member.name] = [] if empty_list else [generated_value]
         else:
-            values[member_name] = generated_value
+            values[member.name] = generated_value
 
     expected_kwargs_references = set(kwargs.keys())
     if kwargs_references != expected_kwargs_references:
@@ -388,17 +465,14 @@ def clone_class_instance(obj: Any, ignored_properties: Optional[set[str]] = None
 
     # We will be creating a dict of property names and their generated values
     # Those values can be basic primitive values or optionally populated
+
     values: dict[str, Any] = {}
-    for member_name in CLASS_MEMBER_FETCHERS[t_generatable_base](t):
+    for member in enumerate_class_properties(t):
         # Skip members that are private OR that are public members of the base class
-        if not is_member_public(member_name):
-            continue
-        if member_name in BASE_CLASS_PUBLIC_MEMBERS[t_generatable_base]:
-            continue
-        if ignored_properties and member_name in ignored_properties:
+        if ignored_properties and member.name in ignored_properties:
             continue
 
-        values[member_name] = getattr(obj, member_name)
+        values[member.name] = getattr(obj, member.name)
 
     return CLASS_INSTANCE_GENERATORS[t_generatable_base](t, values)
 
