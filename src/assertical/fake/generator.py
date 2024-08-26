@@ -477,40 +477,81 @@ def check_class_instance_equality(
 # ---------------------------------------
 
 # The set of generators (seed: int) -> typed value (keyed by the type that they generate)
-PRIMITIVE_VALUE_GENERATORS: dict[type, Callable[[int], Any]] = {
-    int: lambda seed: int(seed),
-    str: lambda seed: f"{seed}-str",
-    float: lambda seed: float(seed),
-    bool: lambda seed: (seed % 2) == 0,
-    Decimal: lambda seed: Decimal(seed),
-    datetime: lambda seed: datetime(2010, 1, 1, tzinfo=timezone.utc) + timedelta(days=seed) + timedelta(seconds=seed),
-    time: lambda seed: time(seed % 24, seed % 60, (seed + 1) % 60),
-}
+PRIMITIVE_VALUE_GENERATORS: dict[type, Callable[[int], Any]] = {}
+
+
+def register_value_generator(t: type, generator: Callable[[int], Any]) -> None:
+    """Registers a type as being a primitive value generator that will allow methods in this module to generate
+    a 'unique' instance of type t based on a seed inte value.
+
+    generator should return NEW values for each call such that:
+    generator(1) == generator(1) and generator(1) is not generator(1).
+
+    If planning to use this to extend the types supported - please also consider using
+    assertical.fixures.generator.generator_snapshot to unload the extensions after a test to avoid
+    polluting the global registry"""
+    PRIMITIVE_VALUE_GENERATORS[t] = generator
+
+
+register_value_generator(int, lambda seed: int(seed))
+register_value_generator(str, lambda seed: f"{seed}-str")
+register_value_generator(float, lambda seed: float(seed))
+register_value_generator(bool, lambda seed: (seed % 2) == 0)
+register_value_generator(Decimal, lambda seed: Decimal(seed))
+register_value_generator(
+    datetime, lambda seed: datetime(2010, 1, 1, tzinfo=timezone.utc) + timedelta(days=seed) + timedelta(seconds=seed)
+)
+register_value_generator(time, lambda seed: time(seed % 24, seed % 60, (seed + 1) % 60))
+register_value_generator(timedelta, lambda seed: timedelta(seconds=seed))
+
 
 # the set of all generators (target: type, kwargs: dict[str, Any) -> class instance (keyed by the base type of
 # the generated type))
-CLASS_INSTANCE_GENERATORS: dict[type, Callable[[type, dict[str, Any]], Any]] = {
-    DeclarativeBase: lambda target, kwargs: target(**kwargs),
-    DeclarativeBaseNoMeta: lambda target, kwargs: target(**kwargs),
-    BaseXmlModel: lambda target, kwargs: target.model_construct(**kwargs),  # type: ignore
-    BaseModel: lambda target, kwargs: target.model_construct(**kwargs),  # type: ignore
-    _PlaceholderDataclassBase: lambda target, kwargs: target(**kwargs),
-}
-
+CLASS_INSTANCE_GENERATORS: dict[type, Callable[[type, dict[str, Any]], Any]] = {}
 # the set of functions for accessing all members of a class (keyed by the base class for accessing those members)
-CLASS_MEMBER_FETCHERS: dict[type, Callable[[type], list[str]]] = {
-    DeclarativeBase: lambda target: [name for (name, _) in inspect.getmembers(target)],
-    DeclarativeBaseNoMeta: lambda target: [name for (name, _) in inspect.getmembers(target)],
-    BaseXmlModel: lambda target: list(target.model_fields.keys()),  # type: ignore
-    BaseModel: lambda target: list(target.model_fields.keys()),  # type: ignore
-    _PlaceholderDataclassBase: lambda target: [f.name for f in fields(target)],
-}
-
+CLASS_MEMBER_FETCHERS: dict[type, Callable[[type], list[str]]] = {}
 # the set all base class public members keyed by the base class that generated them
 BASE_CLASS_PUBLIC_MEMBERS: dict[type, set[str]] = {}
-for base_class in CLASS_INSTANCE_GENERATORS.keys():
-    members = CLASS_MEMBER_FETCHERS[base_class](base_class)
-    BASE_CLASS_PUBLIC_MEMBERS[base_class] = set([m for m in members if is_member_public(m)])
+DEFAULT_CLASS_INSTANCE_GENERATOR: Callable[[type, dict[str, Any]], Any] = lambda target, kwargs: target(**kwargs)
+DEFAULT_MEMBER_FETCHER: Callable[[type], list[str]] = lambda target: [name for (name, _) in inspect.getmembers(target)]
+
+
+def register_base_type(
+    base_type: type,
+    instance_generator: Callable[[type, dict[str, Any]], Any],
+    member_fetcher: Callable[[type], list[str]],
+) -> None:
+    """Registers a type that will allow all subclasses to be generated/cloned by functions in this module.
+
+    instance_generator: Turn kwargs into a NEW instance of the specified target type. target type will always be a
+                        subclass of base_type. DEFAULT_CLASS_INSTANCE_GENERATOR is a sensible default for most types
+    member_fetcher: Should fetch a list of strings with each string value representing a property on the target type. If
+                    this base_type is compatible with the inspect module, DEFAULT_MEMBER_FETCHER should work
+
+    If planning to use this to extend the types supported - please also consider using
+    assertical.fixures.generator.generator_snapshot to unload the extensions after a test to avoid
+    polluting the global registry"""
+    CLASS_INSTANCE_GENERATORS[base_type] = instance_generator
+    CLASS_MEMBER_FETCHERS[base_type] = member_fetcher
+    BASE_CLASS_PUBLIC_MEMBERS[base_type] = set([m for m in member_fetcher(base_type) if is_member_public(m)])
+
+
+register_base_type(
+    BaseXmlModel,
+    lambda target, kwargs: target.model_construct(**kwargs),  # type: ignore
+    lambda target: list(target.model_fields.keys()),  # type: ignore
+)
+register_base_type(
+    BaseModel,
+    lambda target, kwargs: target.model_construct(**kwargs),  # type: ignore
+    lambda target: list(target.model_fields.keys()),  # type: ignore
+)
+register_base_type(DeclarativeBase, DEFAULT_CLASS_INSTANCE_GENERATOR, DEFAULT_MEMBER_FETCHER)
+register_base_type(DeclarativeBaseNoMeta, DEFAULT_CLASS_INSTANCE_GENERATOR, DEFAULT_MEMBER_FETCHER)
+register_base_type(
+    _PlaceholderDataclassBase, DEFAULT_CLASS_INSTANCE_GENERATOR, lambda target: [f.name for f in fields(target)]
+)
+
 
 # SQL Alchemy does some dynamic class construction that inspect.getmembers() can't pickup
 # This is our Workaround to ensure that the BASE_CLASS_PUBLIC_MEMBERS is properly populated

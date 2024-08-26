@@ -70,6 +70,57 @@ class TestResult(DeclarativeBase):
 And assuming `Student` has a property `all_results: Mapped[list[TestResult]]`. `generate_class_instance(Student)` will NOT supply a value for `all_results`. But by setting `generate_class_instance(Student, generate_relationships=True)` the generation will recurse into any generatable / list of generatable type instances.
 
 
+#### Registering New Types
+
+By default a number of common types / base classes will be registered but these can be extended with:
+
+`assertical.fake.generator.register_value_generator(t, gen)` allows you to register a function that can generate an instance of type t given an integer seed value. The following example registers `MyType` so that other classes can have a property `my_type: Optional[MyType]` and have the values generated according to the supplied generator function:
+
+```
+class MyType:
+    val: int
+    def __init__(self, val):
+        self.val = val
+
+register_value_generator(MyType, lambda seed: MyType(seed))
+```
+
+`assertical.fake.generator.register_base_type(base_t, generate_instance, list_members)` allows you to register a base type so that instances of subclasses of this base type can be generated using `generate_class_instance`. For example, the following registers a more complex type:
+
+```
+class MyBaseType:
+    def __init__(self):
+        pass
+
+class MyComplexType(MyBaseType):
+    id: int
+    name: str
+    def __init__(self, id, name):
+        super.__init__()
+        self.id = id
+        self.name = name
+
+
+register_base_type(MyBaseType, DEFAULT_CLASS_INSTANCE_GENERATOR, DEFAULT_MEMBER_FETCHER)
+```
+
+**Note:** All registrations apply globally. If you plan on using tests that modify the registry in different ways, there is a fixture `assertical.fixtures.generator.generator_registry_snapshot` that provides a context manager that will preserve and reset the global registry between tests.
+
+eg:
+
+```
+def test_function()
+    with generator_registry_snapshot():
+        register_value_generator(MyPrimitiveType, lambda seed: MyPrimitiveType(seed))
+        register_base_type(
+            MyBaseType,
+            DEFAULT_CLASS_INSTANCE_GENERATOR,
+            DEFAULT_MEMBER_FETCHER,
+        )
+
+        # Do test body
+```
+
 ### Mocking HTTP AsyncClient
 
 `MockedAsyncClient` is a duck typed equivalent to `from httpx import AsyncClient` that can be useful fo injecting into classes that depend on a AsyncClient implementation. 
