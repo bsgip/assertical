@@ -1,6 +1,6 @@
 import sys
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from enum import IntEnum, IntFlag, auto
 from typing import List, Optional, Union
 
@@ -202,6 +202,9 @@ def test_generate_value():
     with pytest.raises(Exception):
         generate_value(list[int], 1)
 
+    assert generate_value(str, 1, True) == generate_value(str, 1, True)
+    assert generate_value(str, 1, True) is not generate_value(str, 1, True)
+
 
 def test_get_enum_type_non_enums():
     assert get_enum_type(None, True) is None
@@ -338,6 +341,7 @@ def test_is_generatable_type():
     assert is_generatable_type(Union[type(None), str])
     assert is_generatable_type(Mapped[Optional[int]])
     assert is_generatable_type(Mapped[Optional[datetime]])
+    assert is_generatable_type(Optional[timedelta])
 
     assert not is_generatable_type(ChildClass)
     assert not is_generatable_type(ParentClass)

@@ -4,8 +4,8 @@ from typing import Optional
 import pytest
 
 from assertical.fixtures.environment import (
+    delete_environment_variable,
     environment_snapshot,
-    update_environment_variable,
 )
 
 NEVER_EXISTS_NAME = "92y539hgf3_123akjh"
@@ -39,8 +39,14 @@ def test_environment_snapshot(kvps: list[tuple[str, Optional[str]]]):
 
         # Mess with the environment
         for k, v in kvps:
-            update_environment_variable(k, v)
 
+            # Make the change
+            if v is None:
+                delete_environment_variable(k)
+            else:
+                os.environ[k] = v
+
+            # Ensure it changed
             if v is not None:
                 assert os.environ[k] == v
             else:
