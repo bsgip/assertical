@@ -1,3 +1,4 @@
+import sys
 import inspect
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import datetime, time, timedelta, timezone
@@ -636,24 +637,30 @@ def register_base_type(
     BASE_CLASS_PUBLIC_MEMBERS[base_type] = set([m for m in member_fetcher(base_type) if is_member_public(m)])
 
 
-register_base_type(
-    BaseXmlModel,
-    lambda target, kwargs: target.model_construct(**kwargs),  # type: ignore
-    lambda target: list(target.model_fields.keys()),  # type: ignore
-)
-register_base_type(
-    BaseModel,
-    lambda target, kwargs: target.model_construct(**kwargs),  # type: ignore
-    lambda target: list(target.model_fields.keys()),  # type: ignore
-)
-register_base_type(DeclarativeBase, DEFAULT_CLASS_INSTANCE_GENERATOR, DEFAULT_MEMBER_FETCHER)
-register_base_type(DeclarativeBaseNoMeta, DEFAULT_CLASS_INSTANCE_GENERATOR, DEFAULT_MEMBER_FETCHER)
+# Base type registration
 register_base_type(
     _PlaceholderDataclassBase, DEFAULT_CLASS_INSTANCE_GENERATOR, lambda target: [f.name for f in fields(target)]
 )
 
+if "pydantic_xml" in sys.modules:
+    register_base_type(
+        BaseXmlModel,
+        lambda target, kwargs: target.model_construct(**kwargs),  # type: ignore
+        lambda target: list(target.model_fields.keys()),  # type: ignore
+    )
 
-# SQL Alchemy does some dynamic class construction that inspect.getmembers() can't pickup
-# This is our Workaround to ensure that the BASE_CLASS_PUBLIC_MEMBERS is properly populated
-for sql_alchemy_type in [DeclarativeBase, DeclarativeBaseNoMeta]:
-    BASE_CLASS_PUBLIC_MEMBERS[sql_alchemy_type].update(["metadata", "registry"])
+if "pydantic" in sys.modules:
+    register_base_type(
+        BaseModel,
+        lambda target, kwargs: target.model_construct(**kwargs),  # type: ignore
+        lambda target: list(target.model_fields.keys()),  # type: ignore
+    )
+
+if "sqlalchemy" in sys.modules:
+    register_base_type(DeclarativeBase, DEFAULT_CLASS_INSTANCE_GENERATOR, DEFAULT_MEMBER_FETCHER)
+    register_base_type(DeclarativeBaseNoMeta, DEFAULT_CLASS_INSTANCE_GENERATOR, DEFAULT_MEMBER_FETCHER)
+
+    # SQL Alchemy does some dynamic class construction that inspect.getmembers() can't pickup
+    # This is our Workaround to ensure that the BASE_CLASS_PUBLIC_MEMBERS is properly populated
+    for sql_alchemy_type in [DeclarativeBase, DeclarativeBaseNoMeta]:
+        BASE_CLASS_PUBLIC_MEMBERS[sql_alchemy_type].update(["metadata", "registry"])
