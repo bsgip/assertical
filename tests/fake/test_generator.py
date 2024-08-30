@@ -24,8 +24,9 @@ from sqlalchemy.orm import (
 )
 
 from assertical.asserts.generator import assert_class_instance_equality
-from assertical.asserts.type import assert_list_type
+from assertical.asserts.type import assert_list_type, assert_set_type
 from assertical.fake.generator import (
+    CollectionType,
     PropertyGenerationDetails,
     check_class_instance_equality,
     clone_class_instance,
@@ -106,6 +107,7 @@ class ParentClass(Base):
     disabled: Mapped[bool] = mapped_column(BOOLEAN, nullable=False)
     total: Mapped[float] = mapped_column(FLOAT, nullable=False)
     children: Mapped[list["ChildClass"]] = relationship(back_populates="parent")
+    optional_children: Mapped[Optional[list["ChildClass"]]] = relationship(back_populates="parent")
 
     UniqueConstraint("name", "created", name="name_created")
 
@@ -166,6 +168,7 @@ class XmlClass(BaseXmlModelWithNS):
     myInt: Optional[FurtherIntExtension] = element()
     myStr: StringExtension = element()
     myChildren: list[ChildXmlClass] = element()
+    myOptionalChildren: Optional[list[ChildXmlClass]] = element()
     mySibling: SiblingXmlClass = element()
     myOptionalSibling: Optional[SiblingXmlClass] = element(default=None)
 
@@ -183,6 +186,26 @@ class ParentDataclass:
     myStr: str
     myList: list[int]
     myTime: time
+
+
+@dataclass(frozen=True)
+class ReferenceDataclass:
+    myOptInt: Optional[int]
+    myInt: int
+
+
+@dataclass
+class OptionalCollectionsClass:
+    """Lots of variations on lists and optional"""
+
+    ints: list[int]
+    optional_int_vals: list[Optional[int]]
+    optional_int_list: Optional[list[int]]
+    optional_optional_ints: Optional[list[Optional[int]]]
+    refs: set["ReferenceDataclass"]
+    optional_refs_vals: set[Optional["ReferenceDataclass"]]
+    optional_refs_list: Optional[set["ReferenceDataclass"]]
+    optional_optional_refs: Optional[set[Optional["ReferenceDataclass"]]]
 
 
 def test_generate_value():
@@ -681,6 +704,7 @@ def test_assert_class_instance_equality():
 
 
 def test_check_class_instance_equality():
+
     # Check basic equality
     assert (
         check_class_instance_equality(
@@ -714,6 +738,19 @@ def test_check_class_instance_equality():
             ParentClass,
             generate_class_instance(ParentClass, seed=4, generate_relationships=True, optional_is_none=True),
             generate_class_instance(ParentClass, seed=4, generate_relationships=True, optional_is_none=True),
+        )
+        == []
+    )
+
+    assert (
+        check_class_instance_equality(
+            OptionalCollectionsClass,
+            generate_class_instance(
+                OptionalCollectionsClass, seed=5, generate_relationships=True, optional_is_none=False
+            ),
+            generate_class_instance(
+                OptionalCollectionsClass, seed=5, generate_relationships=True, optional_is_none=False
+            ),
         )
         == []
     )
@@ -825,56 +862,146 @@ def test_generate_kwargs():
 @pytest.mark.parametrize(
     "t, expected",
     [
-        (SiblingXmlClass, [PropertyGenerationDetails("siblingStr", StringExtension, str, True, False, False)]),
+        (SiblingXmlClass, [PropertyGenerationDetails("siblingStr", StringExtension, str, True, False, None)]),
+        (
+            OptionalCollectionsClass,
+            [
+                PropertyGenerationDetails("ints", list[int], int, True, False, CollectionType.REQUIRED_LIST),
+                PropertyGenerationDetails(
+                    "optional_int_vals", list[Optional[int]], int, True, True, CollectionType.REQUIRED_LIST
+                ),
+                PropertyGenerationDetails(
+                    "optional_int_list", Optional[list[int]], int, True, False, CollectionType.OPTIONAL_LIST
+                ),
+                PropertyGenerationDetails(
+                    "optional_optional_ints",
+                    Optional[list[Optional[int]]],
+                    int,
+                    True,
+                    True,
+                    CollectionType.OPTIONAL_LIST,
+                ),
+                PropertyGenerationDetails(
+                    "refs", set[ReferenceDataclass], ReferenceDataclass, False, False, CollectionType.REQUIRED_SET
+                ),
+                PropertyGenerationDetails(
+                    "optional_refs_vals",
+                    set[Optional[ReferenceDataclass]],
+                    ReferenceDataclass,
+                    False,
+                    True,
+                    CollectionType.REQUIRED_SET,
+                ),
+                PropertyGenerationDetails(
+                    "optional_refs_list",
+                    Optional[set[ReferenceDataclass]],
+                    ReferenceDataclass,
+                    False,
+                    False,
+                    CollectionType.OPTIONAL_SET,
+                ),
+                PropertyGenerationDetails(
+                    "optional_optional_refs",
+                    Optional[set[Optional[ReferenceDataclass]]],
+                    ReferenceDataclass,
+                    False,
+                    True,
+                    CollectionType.OPTIONAL_SET,
+                ),
+            ],
+        ),
         (
             XmlClass,
             [
-                PropertyGenerationDetails("myInt", Optional[FurtherIntExtension], int, True, True, False),
-                PropertyGenerationDetails("myStr", StringExtension, str, True, False, False),
-                PropertyGenerationDetails("myChildren", list[ChildXmlClass], ChildXmlClass, False, False, True),
-                PropertyGenerationDetails("mySibling", SiblingXmlClass, SiblingXmlClass, False, False, False),
+                PropertyGenerationDetails("myInt", Optional[FurtherIntExtension], int, True, True, None),
+                PropertyGenerationDetails("myStr", StringExtension, str, True, False, None),
                 PropertyGenerationDetails(
-                    "myOptionalSibling", Optional[SiblingXmlClass], SiblingXmlClass, False, True, False
+                    "myChildren", list[ChildXmlClass], ChildXmlClass, False, False, CollectionType.REQUIRED_LIST
+                ),
+                PropertyGenerationDetails(
+                    "myOptionalChildren",
+                    Optional[list[ChildXmlClass]],
+                    ChildXmlClass,
+                    False,
+                    False,
+                    CollectionType.OPTIONAL_LIST,
+                ),
+                PropertyGenerationDetails("mySibling", SiblingXmlClass, SiblingXmlClass, False, False, None),
+                PropertyGenerationDetails(
+                    "myOptionalSibling", Optional[SiblingXmlClass], SiblingXmlClass, False, True, None
                 ),
             ],
         ),
         (
             ParentClass,
             [
-                PropertyGenerationDetails("parent_id", Mapped[int], int, True, False, False),
-                PropertyGenerationDetails("name", Mapped[str], str, True, False, False),
-                PropertyGenerationDetails("created", Mapped[datetime], datetime, True, False, False),
-                PropertyGenerationDetails("deleted", Mapped[datetime], datetime, True, False, False),
-                PropertyGenerationDetails("disabled", Mapped[bool], bool, True, False, False),
-                PropertyGenerationDetails("total", Mapped[float], float, True, False, False),
-                PropertyGenerationDetails("children", Mapped[list[ChildClass]], ChildClass, False, False, True),
+                PropertyGenerationDetails("parent_id", Mapped[int], int, True, False, None),
+                PropertyGenerationDetails("name", Mapped[str], str, True, False, None),
+                PropertyGenerationDetails("created", Mapped[datetime], datetime, True, False, None),
+                PropertyGenerationDetails("deleted", Mapped[datetime], datetime, True, False, None),
+                PropertyGenerationDetails("disabled", Mapped[bool], bool, True, False, None),
+                PropertyGenerationDetails("total", Mapped[float], float, True, False, None),
+                PropertyGenerationDetails(
+                    "children", Mapped[list[ChildClass]], ChildClass, False, False, CollectionType.REQUIRED_LIST
+                ),
+                PropertyGenerationDetails(
+                    "optional_children",
+                    Mapped[Optional[list[ChildClass]]],
+                    ChildClass,
+                    False,
+                    False,
+                    CollectionType.OPTIONAL_LIST,
+                ),
             ],
         ),
         (
             ChildClass,
             [
-                PropertyGenerationDetails("child_id", Mapped[int], int, True, False, False),
-                PropertyGenerationDetails("parent_id", Mapped[int], int, True, False, False),
-                PropertyGenerationDetails("name", Mapped[str], str, True, False, False),
-                PropertyGenerationDetails("long_name", Mapped[Optional[str]], str, True, True, False),
-                PropertyGenerationDetails("created_at", Mapped[datetime], datetime, True, False, False),
-                PropertyGenerationDetails("deleted_at", Mapped[Optional[datetime]], datetime, True, True, False),
-                PropertyGenerationDetails("flags", Mapped[CustomFlags], CustomFlags, True, False, False),
+                PropertyGenerationDetails("child_id", Mapped[int], int, True, False, None),
+                PropertyGenerationDetails("parent_id", Mapped[int], int, True, False, None),
+                PropertyGenerationDetails("name", Mapped[str], str, True, False, None),
+                PropertyGenerationDetails("long_name", Mapped[Optional[str]], str, True, True, None),
+                PropertyGenerationDetails("created_at", Mapped[datetime], datetime, True, False, None),
+                PropertyGenerationDetails("deleted_at", Mapped[Optional[datetime]], datetime, True, True, None),
+                PropertyGenerationDetails("flags", Mapped[CustomFlags], CustomFlags, True, False, None),
                 PropertyGenerationDetails(
-                    "optional_flags", Mapped[Optional[CustomFlags]], CustomFlags, True, True, False
+                    "optional_flags", Mapped[Optional[CustomFlags]], CustomFlags, True, True, None
                 ),
-                PropertyGenerationDetails("parent", Mapped[ParentClass], ParentClass, False, False, False),
+                PropertyGenerationDetails("parent", Mapped[ParentClass], ParentClass, False, False, None),
             ],
         ),
         (
             ClassWithNoMeta,
             [
-                PropertyGenerationDetails("my_id", Mapped[int], int, True, False, False),
-                PropertyGenerationDetails("name", Mapped[str], str, True, False, False),
-                PropertyGenerationDetails("created", Mapped[datetime], datetime, True, False, False),
-                PropertyGenerationDetails("deleted", Mapped[datetime], datetime, True, False, False),
-                PropertyGenerationDetails("disabled", Mapped[bool], bool, True, False, False),
-                PropertyGenerationDetails("total", Mapped[float], float, True, False, False),
+                PropertyGenerationDetails("my_id", Mapped[int], int, True, False, None),
+                PropertyGenerationDetails("name", Mapped[str], str, True, False, None),
+                PropertyGenerationDetails("created", Mapped[datetime], datetime, True, False, None),
+                PropertyGenerationDetails("deleted", Mapped[datetime], datetime, True, False, None),
+                PropertyGenerationDetails("disabled", Mapped[bool], bool, True, False, None),
+                PropertyGenerationDetails("total", Mapped[float], float, True, False, None),
+            ],
+        ),
+        (
+            FurtherXmlClass,
+            [
+                PropertyGenerationDetails("myOtherInt", IntExtension, int, True, False, None),
+                PropertyGenerationDetails("myInt", Optional[FurtherIntExtension], int, True, True, None),
+                PropertyGenerationDetails("myStr", StringExtension, str, True, False, None),
+                PropertyGenerationDetails(
+                    "myChildren", list[ChildXmlClass], ChildXmlClass, False, False, CollectionType.REQUIRED_LIST
+                ),
+                PropertyGenerationDetails(
+                    "myOptionalChildren",
+                    Optional[list[ChildXmlClass]],
+                    ChildXmlClass,
+                    False,
+                    False,
+                    CollectionType.OPTIONAL_LIST,
+                ),
+                PropertyGenerationDetails("mySibling", SiblingXmlClass, SiblingXmlClass, False, False, None),
+                PropertyGenerationDetails(
+                    "myOptionalSibling", Optional[SiblingXmlClass], SiblingXmlClass, False, True, None
+                ),
             ],
         ),
     ],
@@ -897,3 +1024,32 @@ def test_enumerate_class_properties(t: type, expected: list[PropertyGenerationDe
                 e.declared_type = a.declared_type
 
     assert sorted_actual == sorted_expected
+
+
+def test_generate_OptionalCollectionsClass_relationships():
+    all_set: OptionalCollectionsClass = generate_class_instance(
+        OptionalCollectionsClass, generate_relationships=True, optional_is_none=False
+    )
+    optional: OptionalCollectionsClass = generate_class_instance(
+        OptionalCollectionsClass, generate_relationships=True, optional_is_none=True
+    )
+
+    assert_list_type(int, all_set.ints, count=1)
+    assert_list_type(int, all_set.optional_int_list, count=1)
+    assert_list_type(int, all_set.optional_int_vals, count=1)
+    assert_list_type(int, all_set.optional_optional_ints, count=1)
+
+    assert_list_type(int, optional.ints, count=1)
+    assert len(optional.optional_int_vals) == 1 and optional.optional_int_vals[0] is None
+    assert optional.optional_int_list is None
+    assert optional.optional_optional_ints is None
+
+    assert_set_type(ReferenceDataclass, all_set.refs, count=1)
+    assert_set_type(ReferenceDataclass, all_set.optional_refs_list, count=1)
+    assert_set_type(ReferenceDataclass, all_set.optional_refs_vals, count=1)
+    assert_set_type(ReferenceDataclass, all_set.optional_optional_refs, count=1)
+
+    assert_set_type(ReferenceDataclass, optional.refs, count=1)
+    assert len(optional.optional_refs_vals) == 1 and list(optional.optional_refs_vals)[0] is None
+    assert optional.optional_refs_list is None
+    assert optional.optional_optional_refs is None

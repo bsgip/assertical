@@ -7,10 +7,11 @@ from assertical.asserts.type import (
     assert_dict_type,
     assert_iterable_type,
     assert_list_type,
+    assert_set_type,
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class MyClass:
     num: int
     name: str
@@ -63,6 +64,29 @@ def test_assert_list_type(el_type: type, obj: Any, count: Optional[int], assert_
     else:
         with pytest.raises(AssertionError):
             assert_list_type(el_type, obj, count)
+
+
+@pytest.mark.parametrize(
+    "el_type, obj, count, assert_pass",
+    [
+        (int, None, None, False),
+        (int, [], None, False),  # not a set
+        (int, set([]), None, True),
+        (int, set([]), 0, True),
+        (int, [1, 2], None, False),  # list doesn't match
+        (int, (v for v in [1, 2]), None, False),  # Generator doesn't match
+        (int, set([1, 2, 3]), None, True),
+        (int, set([1, 2, 3]), 3, True),
+        (int, set([1, 2.2, 3]), None, False),  # float in list of ints
+        (MyClass, set([MyClass(1, "a"), MyClass(2, "b")]), 2, True),
+    ],
+)
+def test_assert_set_type(el_type: type, obj: Any, count: Optional[int], assert_pass: bool):
+    if assert_pass:
+        assert_set_type(el_type, obj, count)
+    else:
+        with pytest.raises(AssertionError):
+            assert_set_type(el_type, obj, count)
 
 
 @pytest.mark.parametrize(

@@ -37,6 +37,17 @@ except ImportError:
     DeclarativeBaseNoMeta = None  # type: ignore
     Mapped = None  # type: ignore
 
+from enum import IntEnum, auto
+
+
+class CollectionType(IntEnum):
+    """Describes a type of collection that can hold a type that can be generated"""
+
+    REQUIRED_LIST = auto()  # For type T - represents list[T]
+    OPTIONAL_LIST = auto()  # For type T - represents list[Optional[T]]
+    REQUIRED_SET = auto()  # For type T - represents set[T]
+    OPTIONAL_SET = auto()  # For type T - represents set[Optional[T]]
+
 
 @dataclass
 class PropertyGenerationDetails:
@@ -58,13 +69,13 @@ class PropertyGenerationDetails:
     # Only valid if type_to_generate is not None
     is_primitive_type: bool
 
-    # If True, the property supports "None" as a valid value
+    # If True, the type_to_generate supports "None" as a valid alternative
     # Only valid if type_to_generate is not None
     is_optional: bool
 
-    # If True, the property has a type hint like list[type_to_generate]
-    # Only valid if type_to_generate is not None
-    is_list: bool
+    # If non None, indicates that type_to_generate should be encapsulated by some form of collection when instantiated
+    # For example, a list[int] would have type_to_generate as int and this property as REQUIRED_LIST
+    collection_type: Optional[CollectionType]
 
 
 @dataclass
@@ -293,7 +304,7 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
 
         declared_type: Optional[type] = None
         type_to_generate: Optional[type] = None
-        is_list: bool = False
+        collection_type: Optional[CollectionType] = None
         is_optional: bool = False
         is_primitive: bool = False
         if member_name in type_hints:
@@ -301,12 +312,23 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
             member_type = remove_passthrough_type(declared_type)
             optional_arg_type = get_optional_type_argument(member_type)
             is_optional = optional_arg_type is not None
+
+            # Now lets see if this is a collection type and rework our parsed variables as required
             if is_optional:
-                is_list = get_origin(optional_arg_type) == list
+                if get_origin(optional_arg_type) == list:
+                    collection_type = CollectionType.OPTIONAL_LIST
+                elif get_origin(optional_arg_type) == set:
+                    collection_type = CollectionType.OPTIONAL_SET
             else:
-                is_list = get_origin(member_type) == list
-            if is_list:
+                if get_origin(member_type) == list:
+                    collection_type = CollectionType.REQUIRED_LIST
+                elif get_origin(member_type) == set:
+                    collection_type = CollectionType.REQUIRED_SET
+
+            if collection_type is not None:
                 member_type = get_args(optional_arg_type)[0] if is_optional else get_args(member_type)[0]
+                optional_arg_type = get_optional_type_argument(member_type)
+                is_optional = optional_arg_type is not None
 
             # Work around for SQLAlchemy forward references - hopefully we don't need many of these special cases
             #
@@ -337,7 +359,7 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
             type_to_generate=type_to_generate,
             is_primitive_type=is_primitive,
             is_optional=is_optional,
-            is_list=is_list,
+            collection_type=collection_type,
         )
 
 
@@ -400,21 +422,30 @@ def generate_class_instance(  # noqa: C901
             )
 
         generated_value: Any = None
-        is_list: bool = member.is_list
-        empty_list: bool = False
-        if member.is_primitive_type:
-            if optional_is_none and member.is_optional:
-                generated_value = None
-            else:
-                generated_value = generate_value(
-                    member.type_to_generate, seed=current_seed, optional_is_none=optional_is_none
-                )
+        empty_collection: bool = False
+        collection_type: Optional[CollectionType] = member.collection_type
+
+        if optional_is_none and (
+            member.collection_type == CollectionType.OPTIONAL_LIST
+            or member.collection_type == CollectionType.OPTIONAL_SET
+        ):
+            # We can short circuit some generation if we know the top level collection should be None
+            # In this case - we just set everything to None
+            generated_value = None
+            collection_type = None  # Don't fill with None - just set the member value to None
+            current_seed += 1
+        elif optional_is_none and member.is_optional:
+            # In this case the parent collection is NOT able to be set to None but does support adding items
+            # that are None - so we just add a None to the parent collection (or just generate None)
+            generated_value = None
+            current_seed += 1
+        elif member.is_primitive_type:
+            generated_value = generate_value(
+                member.type_to_generate, seed=current_seed, optional_is_none=optional_is_none
+            )
             current_seed += 1
         else:
-            if optional_is_none and member.is_optional:
-                generated_value = None
-                is_list = False
-            elif generate_relationships:
+            if generate_relationships:
                 generated_value = generate_class_instance(
                     member.type_to_generate,
                     seed=current_seed,
@@ -427,14 +458,19 @@ def generate_class_instance(  # noqa: C901
                 # circumstances the visited_types short circuit will just return None from generate_class_instance
                 # (to stop infinite recursion) The way we handle this is to just generate an empty list (if this is
                 # a list entity)
-                empty_list = generated_value is None
+                if generated_value is None:
+                    empty_collection = True
+                    collection_type = CollectionType.REQUIRED_LIST
             else:
-                empty_list = True
+                # In this case we have a complex type but we aren't generating relationships - throw in a placeholder
+                empty_collection = True
                 generated_value = None
             current_seed += 1000  # Rather than calculating how many seed values were utilised - set it arbitrarily high
 
-        if is_list:
-            values[member.name] = [] if empty_list else [generated_value]
+        if collection_type == CollectionType.REQUIRED_LIST or collection_type == CollectionType.OPTIONAL_LIST:
+            values[member.name] = [] if empty_collection else [generated_value]
+        elif collection_type == CollectionType.REQUIRED_SET or collection_type == CollectionType.OPTIONAL_SET:
+            values[member.name] = set([]) if empty_collection else set([generated_value])
         else:
             values[member.name] = generated_value
 
@@ -508,37 +544,27 @@ def check_class_instance_equality(
     if t_generatable_base is None:
         raise Exception(f"Type {t} does not inherit from one of {CLASS_INSTANCE_GENERATORS.keys()}")
 
-    type_hints = get_type_hints(t)
-
     # We will be creating a dict of property names and their generated values
     # Those values can be basic primitive values or optionally populated
     error_messages = []
-    for member_name in CLASS_MEMBER_FETCHERS[t_generatable_base](t):
-        # Skip members that are private OR that are public members of the base class
-        if not is_member_public(member_name):
-            continue
-        if member_name in BASE_CLASS_PUBLIC_MEMBERS[t_generatable_base]:
-            continue
-        if ignored_properties and member_name in ignored_properties:
+    for member in enumerate_class_properties(t):
+        if ignored_properties and member.name in ignored_properties:
             continue
 
-        if member_name not in type_hints:
-            raise Exception(f"Type {t} has property {member_name} that is missing a type hint")
+        if member.type_to_generate is None:
+            raise Exception(f"Type {t} has property {member.name} that is missing a type hint")
 
-        member_type = remove_passthrough_type(type_hints[member_name])
-        if not is_generatable_type(member_type):
+        if not is_generatable_type(member.type_to_generate):
             continue
 
-        expected_val = getattr(expected, member_name)
-        actual_val = getattr(actual, member_name)
+        expected_val = getattr(expected, member.name)
+        actual_val = getattr(actual, member.name)
 
         if expected_val is None and actual_val is None:
             continue
 
         if expected_val != actual_val:
-            error_messages.append(
-                f"{member_name}: {type_hints[member_name]} expected {expected_val} but got {actual_val}"
-            )
+            error_messages.append(f"{member.name}: {member.declared_type} expected {expected_val} but got {actual_val}")
 
     return error_messages
 
