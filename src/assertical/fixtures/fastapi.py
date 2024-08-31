@@ -59,7 +59,7 @@ async def start_app_with_client(
     """
 
     async with LifespanManager(app):  # This ensures that startup events are fired when the app starts
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", auth=client_auth) as c:  # type: ignore # noqa: E501
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", auth=client_auth) as c:
             yield c
 
 
