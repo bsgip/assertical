@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from dataclasses import dataclass
 from datetime import datetime, time
@@ -41,10 +43,10 @@ class OptionalCollectionsClass:
     optional_int_vals: list[Optional[int]]
     optional_int_list: Optional[list[int]]
     optional_optional_ints: Optional[list[Optional[int]]]
-    refs: set["ReferenceDataclass"]
-    optional_refs_vals: set[Optional["ReferenceDataclass"]]
-    optional_refs_list: Optional[set["ReferenceDataclass"]]
-    optional_optional_refs: Optional[set[Optional["ReferenceDataclass"]]]
+    refs: set[ReferenceDataclass]
+    optional_refs_vals: set[Optional[ReferenceDataclass]]
+    optional_refs_list: Optional[set[ReferenceDataclass]]
+    optional_optional_refs: Optional[set[Optional[ReferenceDataclass]]]
 
 
 def test_clone_class_instance_dataclass():

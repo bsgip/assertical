@@ -9,6 +9,13 @@ from assertical.asserts.type import assert_list_type
 from assertical.fake.generator import generate_class_instance
 
 
+class ChildType(BaseModel):
+
+    child_id: int
+    period_start: datetime
+    duration_seconds: int
+
+
 class ParentType(BaseModel):
     """Billing readings are a total across all phases for the period"""
 
@@ -16,15 +23,8 @@ class ParentType(BaseModel):
     name: str
     long_name: Optional[str]
     duration_seconds: int
-    children: list["ChildType"]
-    optional_children: Optional[list["ChildType"]]
-
-
-class ChildType(BaseModel):
-
-    child_id: int
-    period_start: datetime
-    duration_seconds: int
+    children: list[ChildType]
+    optional_children: Optional[list[ChildType]]
 
 
 @pytest.mark.parametrize("optional_is_none, generate_relationships", product([True, False], [True, False]))
