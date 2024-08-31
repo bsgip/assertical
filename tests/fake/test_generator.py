@@ -107,7 +107,6 @@ class ParentClass(Base):
     disabled: Mapped[bool] = mapped_column(BOOLEAN, nullable=False)
     total: Mapped[float] = mapped_column(FLOAT, nullable=False)
     children: Mapped[list["ChildClass"]] = relationship(back_populates="parent")
-    optional_children: Mapped[Optional[list["ChildClass"]]] = relationship(back_populates="parent")
 
     UniqueConstraint("name", "created", name="name_created")
 
@@ -602,33 +601,44 @@ def test_generate_sql_alchemy_instance_single_relationships():
     assert c1.parent.deleted != c2.parent.deleted, "Checking that different seed numbers yields different results"
 
 
-def test_generate_sql_alchemy_instance_multi_relationships():
+@pytest.mark.parametrize("optional_is_none", [True, False])
+def test_generate_sql_alchemy_instance_multi_relationships(optional_is_none: bool):
     """Sanity check that relationships can be generated as demanded"""
 
-    p1: ParentClass = generate_class_instance(ParentClass, generate_relationships=True)
+    p1: ParentClass = generate_class_instance(
+        ParentClass, generate_relationships=True, optional_is_none=optional_is_none
+    )
+    # generate_relationships is True so this should be populated
+    assert_list_type(ChildClass, p1.children, count=1)
 
-    assert (
-        p1.children is not None and len(p1.children) == 1
-    ), "generate_relationships is True so this should be populated"
-    assert isinstance(p1.children[0], ChildClass)
     assert p1.children[0].child_id is not None
     assert p1.children[0].name is not None
-    assert p1.children[0].long_name is not None
     assert p1.children[0].created_at is not None
-    assert p1.children[0].deleted_at is not None
+    if optional_is_none:
+        assert p1.children[0].long_name is None
+        assert p1.children[0].deleted_at is None
+    else:
+        assert p1.children[0].long_name is not None
+        assert p1.children[0].deleted_at is not None
     assert p1.children[0].parent is not None and p1.children[0].parent == p1, "Backreference should self reference"
     assert (
         p1.children[0].created_at != p1.children[0].deleted_at
     ), "Checking that fields of the same type get unique values"
     assert p1.children[0].long_name != p1.children[0].name, "Checking that fields of the same type get unique values"
 
-    p2: ParentClass = generate_class_instance(ParentClass, seed=2, generate_relationships=True)
-    assert isinstance(p2.children[0], ChildClass)
+    p2: ParentClass = generate_class_instance(
+        ParentClass, seed=2, generate_relationships=True, optional_is_none=optional_is_none
+    )
+    assert_list_type(ChildClass, p2.children, count=1)
     assert p2.children[0].child_id is not None
     assert p2.children[0].name is not None
-    assert p2.children[0].long_name is not None
     assert p2.children[0].created_at is not None
-    assert p2.children[0].deleted_at is not None
+    if optional_is_none:
+        assert p2.children[0].long_name is None
+        assert p2.children[0].deleted_at is None
+    else:
+        assert p2.children[0].long_name is not None
+        assert p2.children[0].deleted_at is not None
     assert p2.children[0].parent is not None and p2.children[0].parent == p2, "Backreference should self reference"
     assert (
         p2.children[0].created_at != p2.children[0].deleted_at
@@ -637,9 +647,11 @@ def test_generate_sql_alchemy_instance_multi_relationships():
     assert (
         p1.children[0].created_at != p2.children[0].created_at
     ), "Checking that different seed numbers yields different results"
-    assert (
-        p1.children[0].deleted_at != p2.children[0].deleted_at
-    ), "Checking that different seed numbers yields different results"
+
+    if not optional_is_none:
+        assert (
+            p1.children[0].deleted_at != p2.children[0].deleted_at
+        ), "Checking that different seed numbers yields different results"
 
 
 def test_clone_class_instance_sql_alchemy():
@@ -943,14 +955,6 @@ def test_generate_kwargs():
                 PropertyGenerationDetails("total", Mapped[float], float, True, False, None),
                 PropertyGenerationDetails(
                     "children", Mapped[list[ChildClass]], ChildClass, False, False, CollectionType.REQUIRED_LIST
-                ),
-                PropertyGenerationDetails(
-                    "optional_children",
-                    Mapped[Optional[list[ChildClass]]],
-                    ChildClass,
-                    False,
-                    False,
-                    CollectionType.OPTIONAL_LIST,
                 ),
             ],
         ),

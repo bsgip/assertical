@@ -278,7 +278,7 @@ def is_member_public(member_name: str) -> bool:
     return len(member_name) > 0 and member_name[0] != "_"
 
 
-def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, None, None]:
+def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, None, None]:  # noqa: C901
     """Iterates through type t's properties returning the PropertyGenerationDetails for each discovered property.
 
     Only "public" properties that don't exist on the BaseType will be returned
@@ -460,7 +460,7 @@ def generate_class_instance(  # noqa: C901
                 # a list entity)
                 if generated_value is None:
                     empty_collection = True
-                    collection_type = CollectionType.REQUIRED_LIST
+                    # collection_type = CollectionType.REQUIRED_LIST
             else:
                 # In this case we have a complex type but we aren't generating relationships - throw in a placeholder
                 empty_collection = True
