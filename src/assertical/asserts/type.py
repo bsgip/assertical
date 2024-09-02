@@ -12,6 +12,17 @@ def assert_list_type(expected_element_type: type, obj: Any, count: Optional[int]
     assert_iterable_type(expected_element_type, obj, count=count)
 
 
+def assert_set_type(expected_element_type: type, obj: Any, count: Optional[int] = None) -> None:
+    """Asserts that obj is not None, is a set and every element is expected_element_type
+
+    if count is specified - an additional assert will be made on the count of elements in obj"""
+    assert obj is not None
+    assert (
+        isinstance(obj, set) or get_origin(type(obj)) == set
+    ), f"Expected a set type for obj but got {type(obj)} instead"
+    assert_iterable_type(expected_element_type, obj, count=count)
+
+
 def assert_dict_type(expected_key_type: type, expected_value_type: type, obj: Any, count: Optional[int] = None) -> None:
     """Asserts that obj is not None, is a dict and every key is expected_key_type and every value is expected_value_type
 
