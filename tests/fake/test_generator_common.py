@@ -66,20 +66,6 @@ class ReferenceDataclass:
     myInt: int
 
 
-@dataclass
-class OptionalCollectionsClass:
-    """Lots of variations on lists and optional"""
-
-    ints: list[int]
-    optional_int_vals: list[Optional[int]]
-    optional_int_list: Optional[list[int]]
-    optional_optional_ints: Optional[list[Optional[int]]]
-    refs: set["ReferenceDataclass"]
-    optional_refs_vals: set[Optional["ReferenceDataclass"]]
-    optional_refs_list: Optional[set["ReferenceDataclass"]]
-    optional_optional_refs: Optional[set[Optional["ReferenceDataclass"]]]
-
-
 def test_generate_value():
     """This won't exhaustively test all types - it's just a quick sanity check on the generation code"""
     assert isinstance(generate_value(int, 1), int)
