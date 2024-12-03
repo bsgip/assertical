@@ -15,18 +15,19 @@ jobs:
         uses: actions/checkout@v3.1.0
 
       - name: Security check - Bandit
-        uses: joshvote/bandit-report-artifacts@v0.0.3
+        uses: joshvote/bandit-report-artifacts@v0.0.5
         with:
           project_path: .
           ignore_failure: false
           config_file: pyproject.toml
 
       - name: Security check report artifacts
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: Security report
           path: output/security_report.txt
+          overwrite: true
 
   # This will run the latest flake8 with python 3.11 and report on any errors
   flake8_py311:

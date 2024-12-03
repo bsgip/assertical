@@ -30,7 +30,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "assertical"
-version = "0.2.0"
+version = "0.2.1"
 description = "Assertical - a modular library for helping write (async) integration/unit tests for fastapi/sqlalchemy/postgres projects"
 authors = [{ name = "Battery Storage and Grid Integration Program" }]
 readme = "README.md"

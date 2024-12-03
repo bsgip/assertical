@@ -126,7 +126,7 @@ def test_remove_passthrough_type():
 def test_generate_sql_alchemy_instance_nometa_values():
     """Simple sanity check on some models to make sure the basic assumptions of generate_sql_alchemy_instance hold"""
 
-    c1: ClassWithNoMeta = generate_class_instance(ClassWithNoMeta)
+    c1 = generate_class_instance(ClassWithNoMeta)
 
     # Ensure we create values
     assert c1.name is not None
@@ -142,7 +142,7 @@ def test_generate_sql_alchemy_instance_nometa_values():
 def test_generate_sql_alchemy_instance_basic_values():
     """Simple sanity check on some models to make sure the basic assumptions of generate_sql_alchemy_instance hold"""
 
-    c1: ChildClass = generate_class_instance(ChildClass)
+    c1 = generate_class_instance(ChildClass)
 
     # Ensure we create values
     assert c1.name is not None
@@ -161,7 +161,7 @@ def test_generate_sql_alchemy_instance_basic_values():
     assert c1.flags != c1.optional_flags, "Checking that fields of the same type get unique values"
 
     # create a new instance with a different seed
-    c2: ChildClass = generate_class_instance(ChildClass, seed=123)
+    c2 = generate_class_instance(ChildClass, seed=123)
     assert c2.name is not None
     assert c2.long_name is not None
     assert c2.child_id is not None
@@ -188,7 +188,7 @@ def test_generate_sql_alchemy_instance_basic_values():
     assert c1.optional_flags != c2.optional_flags, "Checking that different seed numbers yields different results"
 
     # check optional_is_none
-    c3: ChildClass = generate_class_instance(ChildClass, seed=456, optional_is_none=True)
+    c3 = generate_class_instance(ChildClass, seed=456, optional_is_none=True)
     assert c3.name is not None
     assert c3.long_name is None, "optional_is_none is True and this is optional"
     assert c3.child_id is not None
@@ -203,7 +203,7 @@ def test_generate_sql_alchemy_instance_basic_values():
 def test_generate_sql_alchemy_instance_single_relationships():
     """Sanity check that relationships can be generated as demanded"""
 
-    c1: ChildClass = generate_class_instance(ChildClass, generate_relationships=True)
+    c1 = generate_class_instance(ChildClass, generate_relationships=True)
 
     assert c1.parent is not None, "generate_relationships is True so this should be populated"
     assert isinstance(c1.parent, ParentClass)
@@ -216,7 +216,7 @@ def test_generate_sql_alchemy_instance_single_relationships():
     assert c1.parent.created != c1.parent.deleted, "Checking that fields of the same type get unique values"
     assert c1.parent.deleted != c1.parent.disabled, "Checking that fields of the same type get unique values"
 
-    c2: ChildClass = generate_class_instance(ChildClass, seed=2, generate_relationships=True)
+    c2 = generate_class_instance(ChildClass, seed=2, generate_relationships=True)
     assert c2.parent.name is not None
     assert c2.parent.created is not None
     assert c2.parent.deleted is not None
@@ -233,9 +233,7 @@ def test_generate_sql_alchemy_instance_single_relationships():
 def test_generate_sql_alchemy_instance_multi_relationships(optional_is_none: bool):
     """Sanity check that relationships can be generated as demanded"""
 
-    p1: ParentClass = generate_class_instance(
-        ParentClass, generate_relationships=True, optional_is_none=optional_is_none
-    )
+    p1 = generate_class_instance(ParentClass, generate_relationships=True, optional_is_none=optional_is_none)
     # generate_relationships is True so this should be populated
     assert_list_type(ChildClass, p1.children, count=1)
 
@@ -254,9 +252,7 @@ def test_generate_sql_alchemy_instance_multi_relationships(optional_is_none: boo
     ), "Checking that fields of the same type get unique values"
     assert p1.children[0].long_name != p1.children[0].name, "Checking that fields of the same type get unique values"
 
-    p2: ParentClass = generate_class_instance(
-        ParentClass, seed=2, generate_relationships=True, optional_is_none=optional_is_none
-    )
+    p2 = generate_class_instance(ParentClass, seed=2, generate_relationships=True, optional_is_none=optional_is_none)
     assert_list_type(ChildClass, p2.children, count=1)
     assert p2.children[0].child_id is not None
     assert p2.children[0].name is not None
@@ -284,8 +280,8 @@ def test_generate_sql_alchemy_instance_multi_relationships(optional_is_none: boo
 
 def test_clone_class_instance_sql_alchemy():
     """Check that cloned sql alchemy classes are properly shallow cloned"""
-    original: ParentClass = generate_class_instance(ParentClass, generate_relationships=True)
-    clone: ParentClass = clone_class_instance(original)
+    original = generate_class_instance(ParentClass, generate_relationships=True)
+    clone = clone_class_instance(original)
 
     assert clone
     assert clone is not original
@@ -298,7 +294,7 @@ def test_clone_class_instance_sql_alchemy():
     assert clone.disabled is original.disabled
     assert clone.total is original.total
 
-    clone_with_ignores: ParentClass = clone_class_instance(original, ignored_properties=set(["created", "total"]))
+    clone_with_ignores = clone_class_instance(original, ignored_properties=set(["created", "total"]))
     assert clone_with_ignores
     assert clone_with_ignores is not original
     assert isinstance(clone_with_ignores, ParentClass)
@@ -380,12 +376,8 @@ def test_check_class_instance_equality():
     )
 
     # check a single property being out
-    expected: ParentClass = generate_class_instance(
-        ParentClass, seed=1, generate_relationships=False, optional_is_none=True
-    )
-    actual: ParentClass = generate_class_instance(
-        ParentClass, seed=1, generate_relationships=False, optional_is_none=True
-    )
+    expected = generate_class_instance(ParentClass, seed=1, generate_relationships=False, optional_is_none=True)
+    actual = generate_class_instance(ParentClass, seed=1, generate_relationships=False, optional_is_none=True)
     actual.name = actual.name + "-changed"
     assert (
         len(
@@ -405,12 +397,12 @@ def test_check_class_instance_equality():
 def test_generate_kwargs():
     custom_created = datetime(2022, 11, 1, 3, 4, 5)
     custom_deleted = datetime(2023, 12, 4, 5, 6, 7)
-    c1: ChildClass = generate_class_instance(ChildClass, seed=101, created_at=custom_created, deleted_at=custom_deleted)
+    c1 = generate_class_instance(ChildClass, seed=101, created_at=custom_created, deleted_at=custom_deleted)
     assert c1.created_at == custom_created
     assert c1.deleted_at == custom_deleted
     assert c1.parent_id != c1.child_id, "Checking that fields of the same type get unique values"
 
-    c2: ChildClass = generate_class_instance(ChildClass, seed=202, name="My Custom Str")
+    c2 = generate_class_instance(ChildClass, seed=202, name="My Custom Str")
     assert c2.name == "My Custom Str"
     assert c2.parent_id != c2.child_id, "Checking that fields of the same type get unique values"
 

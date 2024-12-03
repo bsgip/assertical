@@ -50,8 +50,8 @@ class OptionalCollectionsClass:
 
 
 def test_clone_class_instance_dataclass():
-    original: ReferenceDataclass = generate_class_instance(ReferenceDataclass, generate_relationships=True)
-    clone: ReferenceDataclass = clone_class_instance(original)
+    original = generate_class_instance(ReferenceDataclass, generate_relationships=True)
+    clone = clone_class_instance(original)
 
     assert clone
     assert clone is not original
@@ -99,12 +99,8 @@ def test_check_class_instance_equality():
     )
 
     # check a single property being out
-    expected: ParentDataclass = generate_class_instance(
-        ParentDataclass, seed=1, generate_relationships=False, optional_is_none=True
-    )
-    actual: ParentDataclass = generate_class_instance(
-        ParentDataclass, seed=1, generate_relationships=False, optional_is_none=True
-    )
+    expected = generate_class_instance(ParentDataclass, seed=1, generate_relationships=False, optional_is_none=True)
+    actual = generate_class_instance(ParentDataclass, seed=1, generate_relationships=False, optional_is_none=True)
     actual.myStr = actual.myStr + "-changed"
     assert (
         len(
@@ -122,7 +118,7 @@ def test_check_class_instance_equality():
 
 
 def test_generate_dataclass_basic_values():
-    p1: ParentDataclass = generate_class_instance(ParentDataclass)
+    p1 = generate_class_instance(ParentDataclass)
 
     assert p1.myInt is not None
     assert p1.myOptInt is not None
@@ -134,7 +130,7 @@ def test_generate_dataclass_basic_values():
     assert p1.myInt != p1.myOtherInt, "Checking that fields of the same type get unique values"
 
     # create a new instance with a different seed
-    p2: ParentDataclass = generate_class_instance(ParentDataclass, seed=123)
+    p2 = generate_class_instance(ParentDataclass, seed=123)
 
     assert p2.myInt is not None
     assert p2.myOptInt is not None
@@ -151,7 +147,7 @@ def test_generate_dataclass_basic_values():
     assert p1.myList != p2.myList, "Checking that different seed numbers yields different results"
     assert p1.myTime != p2.myTime, "Checking that different seed numbers yields different results"
 
-    p3: ParentDataclass = generate_class_instance(ParentDataclass, seed=456, optional_is_none=True)
+    p3 = generate_class_instance(ParentDataclass, seed=456, optional_is_none=True)
     assert p3.myOptInt is None, "This field is optional and optional_is_none=True"
     assert p3.myOtherInt is not None
     assert p3.myStr is not None
@@ -160,7 +156,7 @@ def test_generate_dataclass_basic_values():
 
 
 def test_generate_kwargs():
-    p1: ParentDataclass = generate_class_instance(ParentDataclass, seed=101, myInt=8587231, myStr="My Custom Str")
+    p1 = generate_class_instance(ParentDataclass, seed=101, myInt=8587231, myStr="My Custom Str")
     assert p1.myInt == 8587231
     assert p1.myOptInt is not None
     assert p1.myOtherInt is not None
@@ -169,7 +165,7 @@ def test_generate_kwargs():
     assert p1.myList is not None
     assert p1.myInt != p1.myOtherInt, "Checking that fields of the same type get unique values"
 
-    p2: ParentDataclass = generate_class_instance(ParentDataclass, seed=202, myInt=8587231, myStr="My Custom Str")
+    p2 = generate_class_instance(ParentDataclass, seed=202, myInt=8587231, myStr="My Custom Str")
     assert p2.myInt == 8587231
     assert p2.myOptInt is not None
     assert p2.myOtherInt is not None
@@ -263,12 +259,8 @@ def test_enumerate_class_properties(t: type, expected: list[PropertyGenerationDe
 
 
 def test_generate_OptionalCollectionsClass_relationships():
-    all_set: OptionalCollectionsClass = generate_class_instance(
-        OptionalCollectionsClass, generate_relationships=True, optional_is_none=False
-    )
-    optional: OptionalCollectionsClass = generate_class_instance(
-        OptionalCollectionsClass, generate_relationships=True, optional_is_none=True
-    )
+    all_set = generate_class_instance(OptionalCollectionsClass, generate_relationships=True, optional_is_none=False)
+    optional = generate_class_instance(OptionalCollectionsClass, generate_relationships=True, optional_is_none=True)
 
     assert_list_type(int, all_set.ints, count=1)
     assert_list_type(int, all_set.optional_int_list, count=1)

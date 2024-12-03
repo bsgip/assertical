@@ -1,5 +1,5 @@
-import sys
 import inspect
+import sys
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
@@ -9,6 +9,7 @@ from typing import (
     Callable,
     Generator,
     Optional,
+    TypeVar,
     Union,
     cast,
     get_args,
@@ -82,6 +83,9 @@ class PropertyGenerationDetails:
 @dataclass
 class _PlaceholderDataclassBase:
     """Dataclass has no base class - instead we fall back to using this as a placeholder"""
+
+
+AnyType = TypeVar("AnyType")
 
 
 def safe_is_subclass(class_to_check: Optional[type], parent_class: type) -> bool:
@@ -365,13 +369,13 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
 
 
 def generate_class_instance(  # noqa: C901
-    t: type,
+    t: type[AnyType],
     seed: int = 1,
     optional_is_none: bool = False,
     generate_relationships: bool = False,
     _visited_type_stack: Optional[list[type]] = None,
     **kwargs: Any,
-) -> Any:
+) -> AnyType:
     """Given a child class of a key to CLASS_INSTANCE_GENERATORS - generate an instance of that class
     with all properties being assigned unique values based off of seed. The values will match type hints
 
@@ -395,7 +399,7 @@ def generate_class_instance(  # noqa: C901
     if _visited_type_stack is None:
         _visited_type_stack = []
     if t in _visited_type_stack:
-        return None
+        return None  # type: ignore # This only happens in recursion - the top level object will never be None
     _visited_type_stack.append(t)
 
     # We can only generate class instances of classes that inherit from a known base
@@ -483,7 +487,7 @@ def generate_class_instance(  # noqa: C901
     return CLASS_INSTANCE_GENERATORS[t_generatable_base](t, values)
 
 
-def clone_class_instance(obj: Any, ignored_properties: Optional[set[str]] = None) -> Any:
+def clone_class_instance(obj: AnyType, ignored_properties: Optional[set[str]] = None) -> AnyType:
     """Given an instance of a child class of a key to CLASS_INSTANCE_GENERATORS - generate a new instance of that class
     using references to the values in the current public properties in obj (i.e. a shallow clone).
 
