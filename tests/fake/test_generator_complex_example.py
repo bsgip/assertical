@@ -65,7 +65,7 @@ class EnglishResult(Base):
 def test_generate_complex_relationships():
     """Regression test for picking up a known issue with generate_relationships and more complex types"""
 
-    student: Student = generate_class_instance(Student, generate_relationships=True)
+    student = generate_class_instance(Student, generate_relationships=True)
     assert isinstance(student, Student)
 
     # Student should have generated a report card

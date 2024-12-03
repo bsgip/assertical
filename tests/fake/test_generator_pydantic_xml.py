@@ -115,7 +115,7 @@ def test_get_first_generatable_primitive_xml_extension_types():
 
 
 def test_generate_xml_basic_values():
-    p1: FurtherXmlClass = generate_class_instance(FurtherXmlClass)
+    p1 = generate_class_instance(FurtherXmlClass)
 
     assert p1.myInt is not None
     assert p1.myOtherInt is not None
@@ -125,7 +125,7 @@ def test_generate_xml_basic_values():
     assert p1.myInt != p1.myOtherInt, "Checking that fields of the same type get unique values"
 
     # create a new instance with a different seed
-    p2: FurtherXmlClass = generate_class_instance(FurtherXmlClass, seed=123)
+    p2 = generate_class_instance(FurtherXmlClass, seed=123)
 
     assert p2.myInt is not None
     assert p2.myOtherInt is not None
@@ -138,7 +138,7 @@ def test_generate_xml_basic_values():
     assert p1.myOtherInt != p2.myOtherInt, "Checking that different seed numbers yields different results"
     assert p1.myStr != p2.myStr, "Checking that different seed numbers yields different results"
 
-    p3: FurtherXmlClass = generate_class_instance(FurtherXmlClass, seed=456, optional_is_none=True)
+    p3 = generate_class_instance(FurtherXmlClass, seed=456, optional_is_none=True)
     assert p3.myInt is None, "This field is optional and optional_is_none=True"
     assert p3.myOtherInt is not None
     assert p3.myStr is not None
@@ -147,15 +147,13 @@ def test_generate_xml_basic_values():
 
 
 def test_generate_xml_instance_relationships():
-    p1: FurtherXmlClass = generate_class_instance(FurtherXmlClass, generate_relationships=True, optional_is_none=False)
+    p1 = generate_class_instance(FurtherXmlClass, generate_relationships=True, optional_is_none=False)
     assert p1.myChildren is not None and len(p1.myChildren) == 1 and isinstance(p1.myChildren[0], ChildXmlClass)
     assert p1.mySibling is not None and isinstance(p1.mySibling, SiblingXmlClass)
     assert p1.myOptionalSibling is not None and isinstance(p1.myOptionalSibling, SiblingXmlClass)
     assert p1.mySibling.siblingStr != p1.myOptionalSibling.siblingStr, "Different instances have different vals"
 
-    p2: FurtherXmlClass = generate_class_instance(
-        FurtherXmlClass, seed=112, generate_relationships=True, optional_is_none=True
-    )
+    p2 = generate_class_instance(FurtherXmlClass, seed=112, generate_relationships=True, optional_is_none=True)
     assert p2.myChildren is not None and len(p2.myChildren) == 1 and isinstance(p2.myChildren[0], ChildXmlClass)
     assert p2.mySibling is not None and isinstance(p2.mySibling, SiblingXmlClass)
     assert p2.myOptionalSibling is None
@@ -167,8 +165,8 @@ def test_generate_xml_instance_relationships():
 
 def test_clone_class_instance():
     """Check that cloned xml classes are properly shallow cloned"""
-    original: XmlClass = generate_class_instance(XmlClass, generate_relationships=True)
-    clone: XmlClass = clone_class_instance(original)
+    original = generate_class_instance(XmlClass, generate_relationships=True)
+    clone = clone_class_instance(original)
 
     assert clone
     assert clone is not original
@@ -181,8 +179,8 @@ def test_clone_class_instance():
 
 def test_clone_class_instance_further():
     """Check that cloned xml classes are properly shallow cloned"""
-    original: FurtherXmlClass = generate_class_instance(FurtherXmlClass, generate_relationships=True)
-    clone: FurtherXmlClass = clone_class_instance(original)
+    original = generate_class_instance(FurtherXmlClass, generate_relationships=True)
+    clone = clone_class_instance(original)
 
     assert clone
     assert clone is not original
@@ -224,12 +222,8 @@ def test_check_class_instance_equality():
     )
 
     # check a single property being out
-    expected: FurtherXmlClass = generate_class_instance(
-        FurtherXmlClass, seed=1, generate_relationships=False, optional_is_none=True
-    )
-    actual: FurtherXmlClass = generate_class_instance(
-        FurtherXmlClass, seed=1, generate_relationships=False, optional_is_none=True
-    )
+    expected = generate_class_instance(FurtherXmlClass, seed=1, generate_relationships=False, optional_is_none=True)
+    actual = generate_class_instance(FurtherXmlClass, seed=1, generate_relationships=False, optional_is_none=True)
     actual.myStr = actual.myStr + "-changed"
     assert (
         len(
