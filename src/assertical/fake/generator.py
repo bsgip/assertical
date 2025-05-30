@@ -22,6 +22,12 @@ try:
 except ImportError:
     NoneType = type(None)  # type: ignore
 
+
+try:
+    from types import UnionType
+except ImportError:
+    UnionType = type(None)  # type: ignore
+
 try:
     from pydantic import BaseModel
 except ImportError:
@@ -127,7 +133,8 @@ def get_enum_type(t: Optional[type], include_optional: bool) -> Optional[type]:
         inner_enum_type = get_optional_type_argument(t)
         assert inner_enum_type is not None
 
-    is_union = get_origin(t) == Union and len([a for a in get_args(t) if a is not NoneType]) > 1
+    t_origin = get_origin(t)
+    is_union = (t_origin == Union or t_origin == UnionType) and len([a for a in get_args(t) if a is not NoneType]) > 1
     if is_union:
         for union_arg in get_args(t):
             arg_enum = get_enum_type(union_arg, include_optional)
@@ -201,7 +208,7 @@ def get_first_generatable_primitive(t: type, include_optional: bool) -> Optional
     # extract the type
     origin_type = get_origin(t)
     include_optional_type = include_optional and is_optional_type(t)
-    if origin_type == Union:
+    if origin_type == Union or origin_type == UnionType:
         for union_arg in get_args(t):
             prim_type = get_first_generatable_primitive(union_arg, include_optional=False)
             if prim_type is not None:
@@ -261,7 +268,8 @@ def get_optional_type_argument(t: type) -> Optional[type]:
 
     If None is returned then t is NOT an optional type"""
     target_type = remove_passthrough_type(t)
-    if get_origin(target_type) != Union:
+    target_type_origin = get_origin(target_type)
+    if target_type_origin != Union and target_type_origin != UnionType:
         return None
 
     # is this an Optional union?

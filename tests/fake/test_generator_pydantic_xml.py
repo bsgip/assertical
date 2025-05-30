@@ -68,6 +68,13 @@ class FurtherXmlClass(XmlClass):
     myOtherInt: IntExtension = element()
 
 
+class ForwardReferenceClass(BaseXmlModelWithNS):
+    """Uses Forward References to define the relationships"""
+
+    optional_list: Optional[list["ChildXmlClass"]] = element()
+    optional_sibling: Optional["SiblingXmlClass"] = element()
+
+
 def test_xml_types_cant_generate_value():
     with pytest.raises(Exception):
         generate_value(ChildXmlClass, 1)
@@ -309,3 +316,13 @@ def test_enumerate_class_properties(t: type, expected: list[PropertyGenerationDe
                 e.declared_type = a.declared_type
 
     assert sorted_actual == sorted_expected
+
+
+def test_forward_reference_class():
+    all_set = generate_class_instance(ForwardReferenceClass, optional_is_none=False, generate_relationships=True)
+    assert_list_type(ChildXmlClass, all_set.optional_list)
+    assert isinstance(all_set.optional_sibling, SiblingXmlClass)
+
+    none_set = generate_class_instance(ForwardReferenceClass, optional_is_none=True, generate_relationships=True)
+    assert none_set.optional_list is None
+    assert none_set.optional_sibling is None
