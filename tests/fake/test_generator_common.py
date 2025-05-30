@@ -123,6 +123,28 @@ def test_get_enum_type_with_enums(t):
 
 
 @pytest.mark.parametrize("t", ALL_ENUM_TYPES)
+def test_get_enum_type_with_enums_py310_optional(t):
+    """Tests the py310+ version of describing optional types as 'int | None' instead of Optional[int]"""
+
+    if sys.version_info < (3, 10):
+        return
+
+    assert get_enum_type(t | None, False) == t
+    assert get_enum_type(None | t, False) == t
+    assert get_enum_type(Mapped[t | None], False) == t
+    assert get_enum_type(Mapped[None | t], False) == t
+    assert get_enum_type(int | str | t, False) == t
+    assert get_enum_type(int | str | (t | None), False) == t
+    assert get_enum_type(int | str | (None | t), False) == t
+    assert get_enum_type(t | None, True) == t | None
+    assert get_enum_type(None | t, True) == (None | t)
+    assert get_enum_type(Mapped[t | None], True) == t | None
+    assert get_enum_type(Mapped[None | t], True) == (None | t)
+    assert get_enum_type(int | str | (t | None), True) == t | None
+    assert get_enum_type(int | str | (None | t), True) == (None | t)
+
+
+@pytest.mark.parametrize("t", ALL_ENUM_TYPES)
 def test_generate_value_enums(t: type):
     """Tests that generate_value plays nice with enum values"""
 
@@ -168,6 +190,21 @@ def test_get_optional_type_argument():
     assert get_optional_type_argument(RandomOtherClass) is None
     assert get_optional_type_argument(ReferenceDataclass) is None
     assert get_optional_type_argument(Union[int, str]) is None
+
+
+def test_get_optional_type_argument_py310():
+    """Tests the py310+ version of describing optional types as 'int | None' instead of Optional[int]"""
+    if sys.version_info < (3, 10):
+        return
+
+    assert get_optional_type_argument(datetime | None) == datetime
+    assert get_optional_type_argument(None | datetime) == datetime
+    assert get_optional_type_argument(int | None) == int
+    assert get_optional_type_argument(None | int) == int
+    assert get_optional_type_argument(str | None) == str
+    assert get_optional_type_argument(None | str) == str
+    assert get_optional_type_argument(ReferenceDataclass | None) == ReferenceDataclass
+    assert get_optional_type_argument(None | ReferenceDataclass) == ReferenceDataclass
 
 
 def test_is_optional_type():
@@ -281,6 +318,32 @@ def test_get_first_generatable_primitive():
     assert get_first_generatable_primitive(list[str], include_optional=False) is None
     assert get_first_generatable_primitive(list[int], include_optional=False) is None
     assert get_first_generatable_primitive(Mapped[list[str]], include_optional=False) is None
+
+
+def test_get_first_generatable_primitive_py310_optional():
+    """Tests the py310+ version of describing optional types as 'int | None' instead of Optional[int]"""
+    if sys.version_info < (3, 10):
+        return
+
+    # With include_optional enabled
+    assert get_first_generatable_primitive(CustomFlags | None, include_optional=True) == CustomFlags | None
+    assert get_first_generatable_primitive(None | CustomFlags, include_optional=True) == (None | CustomFlags)
+    assert get_first_generatable_primitive(int | None, include_optional=True) == int | None
+    assert get_first_generatable_primitive(None | int, include_optional=True) == (None | int)
+    assert get_first_generatable_primitive(int | str, include_optional=True) == int
+    assert get_first_generatable_primitive((str | None) | int, include_optional=True) == str | None
+    assert get_first_generatable_primitive(Mapped[str | None], include_optional=True) == str | None
+    assert get_first_generatable_primitive(Mapped[CustomFlags | None], include_optional=True) == CustomFlags | None
+
+    # With include_optional disabled
+    assert get_first_generatable_primitive(CustomFlags | None, include_optional=False) == CustomFlags
+    assert get_first_generatable_primitive(None | CustomFlags, include_optional=False) == CustomFlags
+    assert get_first_generatable_primitive(int | None, include_optional=False) == int
+    assert get_first_generatable_primitive(None | int, include_optional=False) == int
+    assert get_first_generatable_primitive(int | str, include_optional=False) == int
+    assert get_first_generatable_primitive((str | None) | int, include_optional=False) == str
+    assert get_first_generatable_primitive(Mapped[str | None], include_optional=False) == str
+    assert get_first_generatable_primitive(Mapped[CustomFlags | None], include_optional=False) == CustomFlags
 
 
 @pytest.mark.parametrize(
