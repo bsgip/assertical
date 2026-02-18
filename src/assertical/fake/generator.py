@@ -651,7 +651,9 @@ def register_base_type(
 
 # Base type registration
 register_base_type(
-    _PlaceholderDataclassBase, DEFAULT_CLASS_INSTANCE_GENERATOR, lambda target: [f.name for f in fields(target)]
+    _PlaceholderDataclassBase,
+    DEFAULT_CLASS_INSTANCE_GENERATOR,
+    lambda target: [f.name for f in fields(target) if f.init],
 )
 
 if "pydantic_xml" in sys.modules:

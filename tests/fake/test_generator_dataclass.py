@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, time
 from typing import Generator, Optional
 
@@ -47,6 +47,16 @@ class OptionalCollectionsClass:
     optional_refs_vals: set[Optional[ReferenceDataclass]]
     optional_refs_list: Optional[set[ReferenceDataclass]]
     optional_optional_refs: Optional[set[Optional[ReferenceDataclass]]]
+
+
+@dataclass
+class InitRestrictionsDataclass:
+    myInt: int  # init = True by default
+    myRestrictedInt1: int = field(default=1, init=False)  # set by default
+    myRestrictedInt2: int = field(init=False)  # set by __post_init__
+
+    def __post_init__(self):
+        self.myRestrictedInt2 = 2
 
 
 def test_clone_class_instance_dataclass():
@@ -153,6 +163,11 @@ def test_generate_dataclass_basic_values():
     assert p3.myStr is not None
     assert p3.myList is not None
     assert p3.myTime is not None
+
+    p4 = generate_class_instance(InitRestrictionsDataclass)
+    assert p4.myInt is not None
+    assert p4.myRestrictedInt1 == 1
+    assert p4.myRestrictedInt2 == 2
 
 
 def test_generate_kwargs():
