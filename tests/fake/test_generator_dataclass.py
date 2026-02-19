@@ -9,6 +9,7 @@ import pytest
 
 from assertical.asserts.type import assert_list_type, assert_set_type
 from assertical.fake.generator import (
+    PRIMITIVE_VALUE_GENERATORS,
     CollectionType,
     PropertyGenerationDetails,
     check_class_instance_equality,
@@ -16,6 +17,7 @@ from assertical.fake.generator import (
     enumerate_class_properties,
     generate_class_instance,
 )
+from assertical.fixtures.generator import generator_registry_snapshot
 
 
 @dataclass
@@ -69,6 +71,17 @@ def test_clone_class_instance_dataclass():
 
     assert clone.myInt is original.myInt
     assert clone.myOptInt is original.myOptInt
+
+
+def test_check_class_instance_equality_non_generatable_type():
+    """This is a bit of a weird test - it's ensuring that check_class_instance_equality doesn't crash out on a
+    type that's defined but is unrecognised. We are triggering these conditions by artifically removing datetime
+    generators"""
+    expected = generate_class_instance(ParentDataclass, seed=1)
+    actual = generate_class_instance(ParentDataclass, seed=1)
+    with generator_registry_snapshot():
+        del PRIMITIVE_VALUE_GENERATORS[datetime]
+        assert check_class_instance_equality(ParentDataclass, expected, actual) == []
 
 
 def test_check_class_instance_equality():

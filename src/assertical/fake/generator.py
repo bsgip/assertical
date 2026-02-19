@@ -564,10 +564,10 @@ def check_class_instance_equality(
         if ignored_properties and member.name in ignored_properties:
             continue
 
-        if member.type_to_generate is None:
+        if member.declared_type is None:
             raise Exception(f"Type {t} has property {member.name} that is missing a type hint")
 
-        if not is_generatable_type(member.type_to_generate):
+        if member.type_to_generate is None or not is_generatable_type(member.type_to_generate):
             continue
 
         expected_val = getattr(expected, member.name)
