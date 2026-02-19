@@ -83,7 +83,7 @@ async def start_uvicorn_server(app: FastAPI, host: str = "127.0.0.1", port: int 
     # Extract the listening socket - this isn't the most robust method but haven't found a counterexample yet
     if not server.servers or not server.servers[0].sockets:
         raise Exception("Unable to find listening socket")
-    (host, port) = server.servers[0].sockets[0].getsockname()
+    host, port = server.servers[0].sockets[0].getsockname()
     yield f"http://{host}:{port}"
 
     await server.down()
