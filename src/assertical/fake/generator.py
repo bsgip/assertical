@@ -350,10 +350,10 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
             # Currently we're digging around in the guts of the Base registry - there maybe an official way to do this?
             if t_generatable_base == DeclarativeBase:
                 if isinstance(member_type, str):
-                    member_type = t.registry._class_registry[member_type]  # type: ignore
+                    member_type = t.registry._class_registry[member_type]
             if t_generatable_base == DeclarativeBaseNoMeta:
                 if isinstance(member_type, str):
-                    member_type = t.registry._class_registry[member_type]  # type: ignore
+                    member_type = t.registry._class_registry[member_type]
 
             if is_generatable_type(member_type):
                 type_to_generate = get_first_generatable_primitive(member_type, include_optional=False)

@@ -1,6 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Optional
+from typing import Any, AsyncGenerator, Awaitable, Optional
 
 import uvicorn
 from asgi_lifespan import LifespanManager
@@ -24,12 +24,11 @@ class UvicornTestServer(uvicorn.Server):
             port (int, optional): the port. Defaults to PORT.
         """
         self._startup_done = asyncio.Event()
-        super().__init__(config=uvicorn.Config(app, host=host, port=port))
+        self._serve_task: Optional[Awaitable[Any]] = None
+        super().__init__(config=uvicorn.Config(app, host=host, port=port, loop="asyncio"))
 
-    async def startup(self, sockets: Optional[list] = None) -> None:
-        """Override uvicorn startup"""
+    async def startup(self, sockets: Optional[list[Any]] = None) -> None:
         await super().startup(sockets=sockets)
-        self.config.setup_event_loop()
         self._startup_done.set()
 
     async def up(self) -> None:
@@ -38,7 +37,8 @@ class UvicornTestServer(uvicorn.Server):
 
     async def down(self) -> None:
         self.should_exit = True
-        await self._serve_task
+        if self._serve_task:
+            await self._serve_task
 
 
 @asynccontextmanager
@@ -83,7 +83,7 @@ async def start_uvicorn_server(app: FastAPI, host: str = "127.0.0.1", port: int 
     # Extract the listening socket - this isn't the most robust method but haven't found a counterexample yet
     if not server.servers or not server.servers[0].sockets:
         raise Exception("Unable to find listening socket")
-    (host, port) = server.servers[0].sockets[0].getsockname()
+    host, port = server.servers[0].sockets[0].getsockname()
     yield f"http://{host}:{port}"
 
     await server.down()
