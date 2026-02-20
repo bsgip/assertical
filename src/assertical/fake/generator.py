@@ -280,21 +280,6 @@ def get_generatable_class_base(t: type) -> Optional[type]:
     return None
 
 
-# def get_generatable_collection(t: type) -> Optional[type]:
-#     target_type = remove_passthrough_type(t)
-#
-#     # we don't consider the Optional[MyType] - only the MyType
-#     optional_arg = get_optional_type_argument(target_type)
-#     if optional_arg is not None:
-#         target_type = optional_arg
-#
-#     if get_origin(t) in [list, set, dict]:
-#         return t
-#
-#     return None
-#
-
-
 def get_optional_type_argument(t: type) -> Optional[type]:
     """If t is Optional[MyType] - return MyType - otherwise return None.
 
@@ -398,10 +383,6 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
                                 second_type_to_generate is not None
                             ), f"Error generating member {member_name}. Couldn't find type for {second_member_type}"
                             second_is_primitive = True
-                        # elif get_generatable_collection(second_member_type) is not None:
-                        #     second_type_to_generate = (
-                        #         second_optional_arg_type if second_is_optional else second_member_type
-                        #     )
                         elif get_generatable_class_base(second_member_type) is not None:
                             second_type_to_generate = (
                                 second_optional_arg_type if second_is_optional else second_member_type
