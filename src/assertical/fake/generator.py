@@ -55,6 +55,8 @@ class CollectionType(IntEnum):
     OPTIONAL_LIST = auto()  # For type T - represents list[Optional[T]]
     REQUIRED_SET = auto()  # For type T - represents set[T]
     OPTIONAL_SET = auto()  # For type T - represents set[Optional[T]]
+    REQUIRED_DICT = auto()
+    OPTIONAL_DICT = auto()
 
 
 @dataclass
@@ -85,10 +87,19 @@ class PropertyGenerationDetails:
     # For example, a list[int] would have type_to_generate as int and this property as REQUIRED_LIST
     collection_type: Optional[CollectionType]
 
+    second_type_to_generate: Optional[type] = None
+    second_is_primitive_type: bool | None = None
+
 
 @dataclass
 class _PlaceholderDataclassBase:
     """Dataclass has no base class - instead we fall back to using this as a placeholder"""
+
+
+@dataclass
+class _PlaceholderCollectionBase:
+    """lists, dicts and sets have no base class other than object
+    - instead we fall back to using this as a placeholder"""
 
 
 AnyType = TypeVar("AnyType")
@@ -249,6 +260,12 @@ def get_generatable_class_base(t: type) -> Optional[type]:
         target_type = optional_arg
 
     if not inspect.isclass(target_type):
+        origin_type = get_origin(target_type)
+        if inspect.isclass(origin_type):
+            # check for collections
+            if origin_type in [list, dict, set]:
+                return _PlaceholderCollectionBase
+
         return None
 
     for base_class in inspect.getmro(target_type):
@@ -261,6 +278,21 @@ def get_generatable_class_base(t: type) -> Optional[type]:
             return _PlaceholderDataclassBase
 
     return None
+
+
+# def get_generatable_collection(t: type) -> Optional[type]:
+#     target_type = remove_passthrough_type(t)
+#
+#     # we don't consider the Optional[MyType] - only the MyType
+#     optional_arg = get_optional_type_argument(target_type)
+#     if optional_arg is not None:
+#         target_type = optional_arg
+#
+#     if get_origin(t) in [list, set, dict]:
+#         return t
+#
+#     return None
+#
 
 
 def get_optional_type_argument(t: type) -> Optional[type]:
@@ -305,7 +337,7 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
     if t_generatable_base is None:
         raise Exception(f"Type {t} does not inherit from one of {CLASS_INSTANCE_GENERATORS.keys()}")
 
-    type_hints = get_type_hints(t)
+    type_hints = TYPE_HINT_FETCHER[t_generatable_base](t)
 
     for member_name in CLASS_MEMBER_FETCHERS[t_generatable_base](t):
 
@@ -320,6 +352,9 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
         collection_type: Optional[CollectionType] = None
         is_optional: bool = False
         is_primitive: bool = False
+        second_type_to_generate: Optional[type] = None
+        second_is_primitive: Optional[bool] = None
+
         if member_name in type_hints:
             declared_type = cast(type, type_hints[member_name])
             member_type = remove_passthrough_type(declared_type)
@@ -332,16 +367,45 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
                     collection_type = CollectionType.OPTIONAL_LIST
                 elif get_origin(optional_arg_type) == set:
                     collection_type = CollectionType.OPTIONAL_SET
+                elif get_origin(optional_arg_type) == dict:
+                    collection_type = CollectionType.OPTIONAL_DICT
             else:
                 if get_origin(member_type) == list:
                     collection_type = CollectionType.REQUIRED_LIST
                 elif get_origin(member_type) == set:
                     collection_type = CollectionType.REQUIRED_SET
+                elif get_origin(member_type) == dict:
+                    collection_type = CollectionType.REQUIRED_DICT
 
             if collection_type is not None:
+                original_member_type = member_type
                 member_type = get_args(optional_arg_type)[0] if is_optional else get_args(member_type)[0]
                 optional_arg_type = get_optional_type_argument(member_type)
                 is_optional = optional_arg_type is not None
+
+                if collection_type in (CollectionType.OPTIONAL_DICT, CollectionType.REQUIRED_DICT):
+                    second_member_type = (
+                        get_args(optional_arg_type)[1] if is_optional else get_args(original_member_type)[1]
+                    )
+                    second_optional_arg_type = get_optional_type_argument(second_member_type)
+                    second_is_optional = optional_arg_type is not None
+                    if collection_type in (CollectionType.OPTIONAL_DICT, CollectionType.REQUIRED_DICT):
+                        if is_generatable_type(second_member_type):
+                            second_type_to_generate = get_first_generatable_primitive(
+                                second_member_type, include_optional=False
+                            )
+                            assert (
+                                second_type_to_generate is not None
+                            ), f"Error generating member {member_name}. Couldn't find type for {second_member_type}"
+                            second_is_primitive = True
+                        # elif get_generatable_collection(second_member_type) is not None:
+                        #     second_type_to_generate = (
+                        #         second_optional_arg_type if second_is_optional else second_member_type
+                        #     )
+                        elif get_generatable_class_base(second_member_type) is not None:
+                            second_type_to_generate = (
+                                second_optional_arg_type if second_is_optional else second_member_type
+                            )
 
             # Work around for SQLAlchemy forward references - hopefully we don't need many of these special cases
             #
@@ -373,6 +437,8 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
             is_primitive_type=is_primitive,
             is_optional=is_optional,
             collection_type=collection_type,
+            second_type_to_generate=second_type_to_generate,
+            second_is_primitive_type=second_is_primitive,
         )
 
 
@@ -438,9 +504,36 @@ def generate_class_instance(  # noqa: C901
         empty_collection: bool = False
         collection_type: Optional[CollectionType] = member.collection_type
 
+        def generate_member(is_primitive_type, type_to_generate, current_seed, empty_collection):
+            if is_primitive_type:
+                generated_value = generate_value(type_to_generate, seed=current_seed, optional_is_none=optional_is_none)
+                current_seed += 1
+            else:
+                generated_value = None
+                if generate_relationships:
+                    generated_value = generate_class_instance(
+                        type_to_generate,
+                        seed=current_seed,
+                        optional_is_none=optional_is_none,
+                        generate_relationships=generate_relationships,
+                        _visited_type_stack=_visited_type_stack,
+                    )
+
+                # None can be generated when Type A has child B that includes a backreference to A. in these
+                # circumstances the visited_types short circuit will just return None from generate_class_instance
+                # (to stop infinite recursion) The way we handle this is to just generate an empty list (if this is
+                # a list entity)
+                if generated_value is None:
+                    empty_collection = True
+
+                # Rather than calculating how many seed values were utilised - set it arbitrarily high
+                current_seed += 1000
+
+            return generated_value, current_seed, empty_collection
+
         if optional_is_none and (
-            member.collection_type == CollectionType.OPTIONAL_LIST
-            or member.collection_type == CollectionType.OPTIONAL_SET
+            member.collection_type
+            in [CollectionType.OPTIONAL_LIST, CollectionType.OPTIONAL_SET, CollectionType.OPTIONAL_DICT]
         ):
             # We can short circuit some generation if we know the top level collection should be None
             # In this case - we just set everything to None
@@ -452,38 +545,32 @@ def generate_class_instance(  # noqa: C901
             # that are None - so we just add a None to the parent collection (or just generate None)
             generated_value = None
             current_seed += 1
-        elif member.is_primitive_type:
-            generated_value = generate_value(
-                member.type_to_generate, seed=current_seed, optional_is_none=optional_is_none
-            )
-            current_seed += 1
         else:
-            if generate_relationships:
-                generated_value = generate_class_instance(
-                    member.type_to_generate,
-                    seed=current_seed,
-                    optional_is_none=optional_is_none,
-                    generate_relationships=generate_relationships,
-                    _visited_type_stack=_visited_type_stack,
-                )
-
-                # None can be generated when Type A has child B that includes a backreference to A. in these
-                # circumstances the visited_types short circuit will just return None from generate_class_instance
-                # (to stop infinite recursion) The way we handle this is to just generate an empty list (if this is
-                # a list entity)
-                if generated_value is None:
-                    empty_collection = True
-                    # collection_type = CollectionType.REQUIRED_LIST
-            else:
-                # In this case we have a complex type but we aren't generating relationships - throw in a placeholder
-                empty_collection = True
-                generated_value = None
-            current_seed += 1000  # Rather than calculating how many seed values were utilised - set it arbitrarily high
+            generated_value, current_seed, empty_collection = generate_member(
+                is_primitive_type=member.is_primitive_type,
+                type_to_generate=member.type_to_generate,
+                current_seed=current_seed,
+                empty_collection=empty_collection,
+            )
 
         if collection_type == CollectionType.REQUIRED_LIST or collection_type == CollectionType.OPTIONAL_LIST:
             values[member.name] = [] if empty_collection else [generated_value]
         elif collection_type == CollectionType.REQUIRED_SET or collection_type == CollectionType.OPTIONAL_SET:
             values[member.name] = set([]) if empty_collection else set([generated_value])
+        elif collection_type == CollectionType.REQUIRED_DICT or collection_type == CollectionType.OPTIONAL_DICT:
+            if optional_is_none and member.is_optional:
+                # In this case the parent collection is NOT able to be set to None but does support adding items
+                # that are None - so we just add a None to the parent collection (or just generate None)
+                second_generated_value = None
+                current_seed += 1
+            else:
+                second_generated_value, current_seed, empty_collection = generate_member(
+                    is_primitive_type=member.second_is_primitive_type,
+                    type_to_generate=member.second_type_to_generate,
+                    current_seed=current_seed,
+                    empty_collection=empty_collection,
+                )
+            values[member.name] = {} if empty_collection else {generated_value: second_generated_value}
         else:
             values[member.name] = generated_value
 
@@ -492,6 +579,7 @@ def generate_class_instance(  # noqa: C901
         raise Exception(f"The following kwargs were unused {expected_kwargs_references.difference(kwargs_references)}")
 
     _visited_type_stack.pop()  # When we finish generating a type, allow recursion back into that type
+
     return CLASS_INSTANCE_GENERATORS[t_generatable_base](t, values)
 
 
@@ -627,12 +715,18 @@ CLASS_MEMBER_FETCHERS: dict[type, Callable[[type], list[str]]] = {}
 BASE_CLASS_PUBLIC_MEMBERS: dict[type, set[str]] = {}
 DEFAULT_CLASS_INSTANCE_GENERATOR: Callable[[type, dict[str, Any]], Any] = lambda target, kwargs: target(**kwargs)
 DEFAULT_MEMBER_FETCHER: Callable[[type], list[str]] = lambda target: [name for (name, _) in inspect.getmembers(target)]
+DEFAULT_PUBLIC_MEMBER_CHECKER: Callable[[str], bool] = is_member_public
+
+TYPE_HINT_FETCHER: dict[type, Callable[[type], dict[str, type]]] = {}
+DEFAULT_TYPE_HINT_FETCHER: Callable[[type], dict[str, type]] = get_type_hints
 
 
 def register_base_type(
     base_type: type,
     instance_generator: Callable[[type, dict[str, Any]], Any],
     member_fetcher: Callable[[type], list[str]],
+    public_member_checker: Callable[[str], bool] = DEFAULT_PUBLIC_MEMBER_CHECKER,
+    type_hint_fetcher: Callable[[type], dict[str, type]] = DEFAULT_TYPE_HINT_FETCHER,
 ) -> None:
     """Registers a type that will allow all subclasses to be generated/cloned by functions in this module.
 
@@ -646,7 +740,8 @@ def register_base_type(
     polluting the global registry"""
     CLASS_INSTANCE_GENERATORS[base_type] = instance_generator
     CLASS_MEMBER_FETCHERS[base_type] = member_fetcher
-    BASE_CLASS_PUBLIC_MEMBERS[base_type] = set([m for m in member_fetcher(base_type) if is_member_public(m)])
+    BASE_CLASS_PUBLIC_MEMBERS[base_type] = set([m for m in member_fetcher(base_type) if public_member_checker(m)])
+    TYPE_HINT_FETCHER[base_type] = type_hint_fetcher
 
 
 # Base type registration
@@ -655,6 +750,16 @@ register_base_type(
     DEFAULT_CLASS_INSTANCE_GENERATOR,
     lambda target: [f.name for f in fields(target) if f.init],
 )
+
+# Handling of collections
+register_base_type(
+    _PlaceholderCollectionBase,
+    lambda target, kwargs: kwargs["self"],
+    lambda _: ["self"],
+    lambda _: False,  # "base class" doesn't have any public members
+    lambda target: {"self": target},
+)
+
 
 if "pydantic_xml" in sys.modules:
     register_base_type(
