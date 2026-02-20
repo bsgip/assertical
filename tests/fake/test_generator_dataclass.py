@@ -90,7 +90,7 @@ class CollectionsDataclass:
 
 
 def test_collections_dataclass():
-    value = generate_class_instance(CollectionsDataclass, seed=1, generate_relationships=True)
+    _ = generate_class_instance(CollectionsDataclass, seed=1, generate_relationships=True)
 
 
 @pytest.mark.parametrize(
