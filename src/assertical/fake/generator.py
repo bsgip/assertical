@@ -428,9 +428,10 @@ def generate_class_instance(  # noqa: C901
     seed: int = 1,
     optional_is_none: bool = False,
     generate_relationships: bool = False,
+    _return_seed: bool = False,
     _visited_type_stack: Optional[list[type]] = None,
     **kwargs: Any,
-) -> AnyType:
+) -> AnyType | tuple[AnyType, int]:
     """Given a child class of a key to CLASS_INSTANCE_GENERATORS - generate an instance of that class
     with all properties being assigned unique values based off of seed. The values will match type hints
 
@@ -454,7 +455,8 @@ def generate_class_instance(  # noqa: C901
     if _visited_type_stack is None:
         _visited_type_stack = []
     if t in _visited_type_stack:
-        return None  # type: ignore # This only happens in recursion - the top level object will never be None
+        # This only happens in recursion - the top level object will never be None
+        return (None, seed) if _return_seed else None  # type: ignore
     _visited_type_stack.append(t)
 
     # We can only generate class instances of classes that inherit from a known base
@@ -492,12 +494,13 @@ def generate_class_instance(  # noqa: C901
             else:
                 generated_value = None
                 if generate_relationships:
-                    generated_value = generate_class_instance(
+                    generated_value, current_seed = generate_class_instance(
                         type_to_generate,
                         seed=current_seed,
                         optional_is_none=optional_is_none,
                         generate_relationships=generate_relationships,
                         _visited_type_stack=_visited_type_stack,
+                        _return_seed=True,
                     )
 
                 # None can be generated when Type A has child B that includes a backreference to A. in these
@@ -506,9 +509,6 @@ def generate_class_instance(  # noqa: C901
                 # a list entity)
                 if generated_value is None:
                     empty_collection = True
-
-                # Rather than calculating how many seed values were utilised - set it arbitrarily high
-                current_seed += 1000
 
             return generated_value, current_seed, empty_collection
 
@@ -561,7 +561,8 @@ def generate_class_instance(  # noqa: C901
 
     _visited_type_stack.pop()  # When we finish generating a type, allow recursion back into that type
 
-    return CLASS_INSTANCE_GENERATORS[t_generatable_base](t, values)
+    instance = CLASS_INSTANCE_GENERATORS[t_generatable_base](t, values)
+    return (instance, current_seed) if _return_seed else instance
 
 
 def clone_class_instance(obj: AnyType, ignored_properties: Optional[set[str]] = None) -> AnyType:
