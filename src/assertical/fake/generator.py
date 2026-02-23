@@ -479,9 +479,11 @@ def generate_class_instance(  # noqa: C901
             continue
 
         if member.type_to_generate is None:
-            raise Exception(
-                f"Type {t} has property {member.name} with type {member.declared_type} that cannot be generated"
-            )
+            # Don't raise exception for ungeneratable types if their value is going to be None
+            if not (optional_is_none and member.is_optional):
+                raise Exception(
+                    f"Type {t} has property {member.name} with type {member.declared_type} that cannot be generated"
+                )
 
         generated_value: Any = None
         empty_collection: bool = False

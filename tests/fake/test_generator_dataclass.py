@@ -4,6 +4,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, time
 from typing import Generator, Optional
+from pathlib import Path
 
 import pytest
 
@@ -87,6 +88,18 @@ class CollectionsDataclass:
     d4: dict[int, dict[str, list[int]]]
     d5: dict[str, dict[str, int]]
     d6: dict[str, dict[str, ReferenceDataclass]]
+
+
+def test_dataclass_with_ungeneratable_type():
+    @dataclass
+    class DataclassWithUngeneratableType:
+        path: Optional[Path]  # assertical can't generate Path values
+
+    with pytest.raises(Exception):
+        generate_class_instance(DataclassWithUngeneratableType)
+
+    # Check optional_is_none allows by-passing ungeneratable types
+    generate_class_instance(DataclassWithUngeneratableType, optional_is_none=True)
 
 
 def test_collections_dataclass():
