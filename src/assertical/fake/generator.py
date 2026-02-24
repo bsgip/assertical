@@ -433,7 +433,7 @@ def generate_class_instance(  # noqa: C901
     _return_seed: bool = False,
     _visited_type_stack: Optional[list[type]] = None,
     **kwargs: Any,
-) -> AnyType | tuple[AnyType, int]:
+) -> Union[AnyType, tuple[AnyType, int]]:
     """Given a child class of a key to CLASS_INSTANCE_GENERATORS - generate an instance of that class
     with all properties being assigned unique values based off of seed. The values will match type hints
 
