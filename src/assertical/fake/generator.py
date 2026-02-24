@@ -11,7 +11,6 @@ from typing import (
     Optional,
     TypeVar,
     Union,
-    cast,
     get_args,
     get_origin,
     get_type_hints,
