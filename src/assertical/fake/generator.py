@@ -344,7 +344,7 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
         second_is_primitive: Optional[bool] = None
 
         if member_name in type_hints:
-            declared_type = cast(type, type_hints[member_name])
+            declared_type = type_hints[member_name]
             member_type = remove_passthrough_type(declared_type)
             optional_arg_type = get_optional_type_argument(member_type)
             is_optional = optional_arg_type is not None
