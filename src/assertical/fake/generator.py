@@ -59,6 +59,9 @@ class CollectionType(IntEnum):
     OPTIONAL_DICT = auto()
 
 
+TWO_PARAMETER_COLLECTION_TYPES: set[CollectionType] = {CollectionType.OPTIONAL_DICT, CollectionType.REQUIRED_DICT}
+
+
 @dataclass
 class PropertyGenerationDetails:
     """Details about a property on a class/type that can be generated"""
@@ -368,7 +371,7 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
                 optional_arg_type = get_optional_type_argument(member_type)
                 is_optional = optional_arg_type is not None
 
-                if collection_type in (CollectionType.OPTIONAL_DICT, CollectionType.REQUIRED_DICT):
+                if collection_type in TWO_PARAMETER_COLLECTION_TYPES:
                     second_member_type = (
                         get_args(optional_arg_type)[1] if is_optional else get_args(original_member_type)[1]
                     )
