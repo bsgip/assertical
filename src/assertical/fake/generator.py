@@ -91,7 +91,7 @@ class PropertyGenerationDetails:
     collection_type: Optional[CollectionType]
 
     second_type_to_generate: Optional[type] = None
-    second_is_primitive_type: bool | None = None
+    second_is_primitive_type: Optional[bool] = None
 
 
 @dataclass
