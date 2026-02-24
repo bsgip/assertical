@@ -492,7 +492,9 @@ def generate_class_instance(  # noqa: C901
         empty_collection: bool = False
         collection_type: Optional[CollectionType] = member.collection_type
 
-        def generate_member(is_primitive_type, type_to_generate, current_seed, empty_collection):
+        def generate_member(
+            is_primitive_type: bool, type_to_generate: type, current_seed: int, empty_collection: bool
+        ) -> tuple[Any, int, bool]:
             if is_primitive_type:
                 generated_value = generate_value(type_to_generate, seed=current_seed, optional_is_none=optional_is_none)
                 current_seed += 1
@@ -534,7 +536,7 @@ def generate_class_instance(  # noqa: C901
         else:
             generated_value, current_seed, empty_collection = generate_member(
                 is_primitive_type=member.is_primitive_type,
-                type_to_generate=member.type_to_generate,
+                type_to_generate=member.type_to_generate,  # type: ignore
                 current_seed=current_seed,
                 empty_collection=empty_collection,
             )
@@ -551,8 +553,8 @@ def generate_class_instance(  # noqa: C901
                 current_seed += 1
             else:
                 second_generated_value, current_seed, empty_collection = generate_member(
-                    is_primitive_type=member.second_is_primitive_type,
-                    type_to_generate=member.second_type_to_generate,
+                    is_primitive_type=member.second_is_primitive_type,  # type: ignore
+                    type_to_generate=member.second_type_to_generate,  # type: ignore
                     current_seed=current_seed,
                     empty_collection=empty_collection,
                 )
