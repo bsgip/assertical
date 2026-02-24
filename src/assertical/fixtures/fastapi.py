@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator, Awaitable, Optional
 import uvicorn
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
+from httpx import ASGITransport, AsyncClient, Request, URL
 from httpx._types import AuthTypes
 
 
@@ -41,11 +41,34 @@ class UvicornTestServer(uvicorn.Server):
             await self._serve_task
 
 
+class ContentTypeAsyncClient(AsyncClient):
+    """AsyncClient implementation that assigns content-type for bodied requests."""
+
+    def __init__(self, *, content_type: str, **kwargs: Any):
+        super().__init__(**kwargs)
+        self.content_type = content_type
+
+    def build_request(self, method: str, url: URL | str, **kwargs: Any) -> Request:
+        """Overloaded implementation from parent class.
+
+        This detects if there is a body associated with the request and sets a content-type
+        """
+        request = super().build_request(method, url, **kwargs)
+
+        if request.content:
+            if "content-type" not in request.headers:
+                request.headers["Content-Type"] = self.content_type
+
+        return request
+
+
 @asynccontextmanager
 async def start_app_with_client(
     app: FastAPI, client_auth: Optional[AuthTypes] = None
 ) -> AsyncGenerator[AsyncClient, None]:
     """Creates an AsyncClient for a test app and returns it as an AsyncGenerator for use with a fixture:
+
+    The default content-type for bodied requests is application/json
 
     Usage:
 
@@ -59,7 +82,9 @@ async def start_app_with_client(
     """
 
     async with LifespanManager(app):  # This ensures that startup events are fired when the app starts
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", auth=client_auth) as c:
+        async with ContentTypeAsyncClient(
+            content_type="application/json", transport=ASGITransport(app=app), base_url="http://test", auth=client_auth
+        ) as c:
             yield c
 
 
