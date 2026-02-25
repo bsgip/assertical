@@ -46,6 +46,8 @@ except ImportError:
 
 from enum import IntEnum, auto
 
+print("IMPORTING FROM GENERATOR.PY")
+
 
 class CollectionType(IntEnum):
     """Describes a type of collection that can hold a type that can be generated"""
@@ -58,6 +60,7 @@ class CollectionType(IntEnum):
     OPTIONAL_DICT = auto()
 
 
+SUPPORTED_COLLECTION_TYPES = {list, dict, set}
 TWO_PARAMETER_COLLECTION_TYPES: set[CollectionType] = {CollectionType.OPTIONAL_DICT, CollectionType.REQUIRED_DICT}
 
 
@@ -261,13 +264,10 @@ def get_generatable_class_base(t: type) -> Optional[type]:
     if optional_arg is not None:
         target_type = optional_arg
 
-    if not inspect.isclass(target_type):
-        origin_type = get_origin(target_type)
-        if inspect.isclass(origin_type):
-            # check for collections
-            if origin_type in [list, dict, set]:
-                return _PlaceholderCollectionBase
+    if get_origin(target_type) in SUPPORTED_COLLECTION_TYPES:
+        return _PlaceholderCollectionBase
 
+    if not inspect.isclass(target_type):
         return None
 
     for base_class in inspect.getmro(target_type):
