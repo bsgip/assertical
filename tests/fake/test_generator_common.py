@@ -87,6 +87,8 @@ def test_generate_value():
         generate_value(RandomOtherClass, 1)
     with pytest.raises(Exception):
         generate_value(list[int], 1)
+    with pytest.raises(Exception):
+        generate_value(dict[str, int], 1)
 
     assert generate_value(str, 1, True) == generate_value(str, 1, True)
     assert generate_value(str, 1, True) is not generate_value(str, 1, True)
@@ -230,6 +232,7 @@ def test_is_passthrough_type():
     assert not is_passthrough_type(Union[str, int])
     assert not is_passthrough_type(str)
     assert not is_passthrough_type(list[int])
+    assert not is_passthrough_type(dict[str, int])
 
 
 def test_remove_passthrough_type():
@@ -299,6 +302,7 @@ def test_get_first_generatable_primitive():
     assert get_first_generatable_primitive(list[str], include_optional=True) is None
     assert get_first_generatable_primitive(list[int], include_optional=True) is None
     assert get_first_generatable_primitive(Mapped[list[str]], include_optional=True) is None
+    assert get_first_generatable_primitive(dict[str, int], include_optional=True) is None
 
     # With include_optional disabled
     assert get_first_generatable_primitive(int, include_optional=False) == int
@@ -318,6 +322,7 @@ def test_get_first_generatable_primitive():
     assert get_first_generatable_primitive(list[str], include_optional=False) is None
     assert get_first_generatable_primitive(list[int], include_optional=False) is None
     assert get_first_generatable_primitive(Mapped[list[str]], include_optional=False) is None
+    assert get_first_generatable_primitive(dict[str, int], include_optional=False) is None
 
 
 def test_get_first_generatable_primitive_py310_optional():

@@ -4,10 +4,11 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, time
 from typing import Generator, Optional
+from pathlib import Path
 
 import pytest
 
-from assertical.asserts.type import assert_list_type, assert_set_type
+from assertical.asserts.type import assert_dict_type, assert_list_type, assert_set_type
 from assertical.fake.generator import (
     PRIMITIVE_VALUE_GENERATORS,
     CollectionType,
@@ -29,6 +30,7 @@ class ParentDataclass:
     myStr: str
     myList: list[int]
     myTime: time
+    myDict: dict[str, int]
 
 
 @dataclass(frozen=True)
@@ -45,10 +47,16 @@ class OptionalCollectionsClass:
     optional_int_vals: list[Optional[int]]
     optional_int_list: Optional[list[int]]
     optional_optional_ints: Optional[list[Optional[int]]]
+
     refs: set[ReferenceDataclass]
     optional_refs_vals: set[Optional[ReferenceDataclass]]
     optional_refs_list: Optional[set[ReferenceDataclass]]
     optional_optional_refs: Optional[set[Optional[ReferenceDataclass]]]
+
+    dict_ints: dict[str, int]
+    dict_optional_ints: dict[str, Optional[int]]
+    optional_dict: Optional[dict[str, int]]
+    optional_dict_optional_ints: Optional[dict[str, Optional[int]]]
 
 
 @dataclass
@@ -59,6 +67,88 @@ class InitRestrictionsDataclass:
 
     def __post_init__(self):
         self.myRestrictedInt2 = 2
+
+
+@dataclass
+class CollectionsDataclass:
+    l1: list[int]
+    l2: list[Optional[int]]
+    l3: Optional[list[int]]
+    l4: Optional[list[Optional[int]]]
+    l5: list[ReferenceDataclass]
+    l6: list[list[ReferenceDataclass]]
+
+    s1: set[int]
+    s2: set[Optional[int]]
+    s3: Optional[set[int]]
+    s4: Optional[set[Optional[int]]]
+    s5: set[ReferenceDataclass]
+
+    d1: dict[str, int]
+    d2: dict[str, ReferenceDataclass]
+    d3: dict[str, list[int]]
+    d4: dict[int, dict[str, list[int]]]
+    d5: dict[str, dict[str, int]]
+    d6: dict[str, dict[str, ReferenceDataclass]]
+
+
+def test_dataclass_with_ungeneratable_type():
+    @dataclass
+    class DataclassWithUngeneratableType:
+        path: Optional[Path]  # assertical can't generate Path values
+
+    with pytest.raises(Exception):
+        generate_class_instance(DataclassWithUngeneratableType)
+
+    # Check optional_is_none allows by-passing ungeneratable types
+    generate_class_instance(DataclassWithUngeneratableType, optional_is_none=True)
+
+
+def test_collections_dataclass():
+    _ = generate_class_instance(CollectionsDataclass, seed=1, generate_relationships=True)
+
+
+@pytest.mark.parametrize(
+    "t,optional_is_none,generate_relationships,expected_value",
+    [
+        (list[int], True, True, [1]),
+        (list[int], True, False, [1]),
+        (list[int], False, True, [1]),
+        (list[int], False, False, [1]),
+        (Optional[list[int]], True, True, None),
+        (Optional[list[int]], True, False, None),
+        (Optional[list[int]], False, True, [1]),
+        (Optional[list[int]], False, False, [1]),
+        (list[Optional[int]], True, True, [None]),
+        (list[Optional[int]], True, False, [None]),
+        (list[Optional[int]], False, True, [1]),
+        (list[Optional[int]], False, False, [1]),
+        (Optional[list[Optional[int]]], True, True, None),
+        (Optional[list[Optional[int]]], True, False, None),
+        (Optional[list[Optional[int]]], False, True, [1]),
+        (Optional[list[Optional[int]]], False, False, [1]),
+        (list[ReferenceDataclass], True, True, [ReferenceDataclass(myOptInt=None, myInt=2)]),
+        (list[ReferenceDataclass], True, False, []),
+        (list[ReferenceDataclass], False, True, [ReferenceDataclass(myOptInt=1, myInt=2)]),
+        (list[ReferenceDataclass], False, False, []),
+        (dict[str, int], True, True, {"1-str": 2}),
+        (dict[str, ReferenceDataclass], True, True, {"1-str": ReferenceDataclass(myOptInt=None, myInt=3)}),
+        (dict[str, list[int]], True, True, {"1-str": [2]}),
+        (dict[str, dict[str, int]], True, True, {"1-str": {"2-str": 3}}),
+        (dict[int, dict[str, list[int]]], True, True, {1: {"2-str": [3]}}),
+        (
+            dict[str, dict[str, ReferenceDataclass]],
+            True,
+            True,
+            {"1-str": {"2-str": ReferenceDataclass(myOptInt=None, myInt=4)}},
+        ),
+    ],
+)
+def test_collections(t: type, optional_is_none: bool, generate_relationships: bool, expected_value):
+    value = generate_class_instance(
+        t, seed=1, optional_is_none=optional_is_none, generate_relationships=generate_relationships
+    )
+    assert value == expected_value
 
 
 def test_clone_class_instance_dataclass():
@@ -262,6 +352,50 @@ def test_generate_kwargs():
                     True,
                     CollectionType.OPTIONAL_SET,
                 ),
+                PropertyGenerationDetails(
+                    "dict_ints",
+                    dict[str, int],
+                    str,
+                    True,
+                    False,
+                    CollectionType.REQUIRED_DICT,
+                    int,
+                    True,
+                    False,
+                ),
+                PropertyGenerationDetails(
+                    "dict_optional_ints",
+                    dict[str, Optional[int]],
+                    str,
+                    True,
+                    False,
+                    CollectionType.REQUIRED_DICT,
+                    int,
+                    True,
+                    True,
+                ),
+                PropertyGenerationDetails(
+                    "optional_dict",
+                    Optional[dict[str, int]],
+                    str,
+                    True,
+                    False,
+                    CollectionType.OPTIONAL_DICT,
+                    int,
+                    True,
+                    False,
+                ),
+                PropertyGenerationDetails(
+                    "optional_dict_optional_ints",
+                    Optional[dict[str, Optional[int]]],
+                    str,
+                    True,
+                    False,
+                    CollectionType.OPTIONAL_DICT,
+                    int,
+                    True,
+                    True,
+                ),
             ],
         ),
     ],
@@ -309,3 +443,13 @@ def test_generate_OptionalCollectionsClass_relationships():
     assert len(optional.optional_refs_vals) == 1 and list(optional.optional_refs_vals)[0] is None
     assert optional.optional_refs_list is None
     assert optional.optional_optional_refs is None
+
+    assert_dict_type(str, int, all_set.dict_ints, count=1)
+    assert_dict_type(str, int, all_set.dict_optional_ints, count=1)
+    assert_dict_type(str, int, all_set.optional_dict, count=1)
+    assert_dict_type(str, int, all_set.optional_dict_optional_ints, count=1)
+
+    assert_dict_type(str, int, optional.dict_ints, count=1)
+    assert len(optional.dict_optional_ints) == 1 and list(optional.dict_optional_ints.values()) == [None]
+    assert optional.optional_dict is None
+    assert optional.optional_dict_optional_ints is None
