@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from assertical.asserts.type import assert_list_type, assert_set_type
+from assertical.asserts.type import assert_dict_type, assert_list_type, assert_set_type
 from assertical.fake.generator import (
     CollectionType,
     PropertyGenerationDetails,
@@ -51,10 +51,10 @@ class OptionalCollectionsClass:
     optional_refs_list: Optional[set[ReferenceDataclass]]
     optional_optional_refs: Optional[set[Optional[ReferenceDataclass]]]
 
-    # dict_ints: dict[str, int]
-    # dict_optional_ints: dict[str, Optional[int]]
-    # optional_dict: Optional[dict[str, int]]
-    # optional_dict_optional_ints: Optional[dict[str, Optional[int]]]
+    dict_ints: dict[str, int]
+    dict_optional_ints: dict[str, Optional[int]]
+    optional_dict: Optional[dict[str, int]]
+    optional_dict_optional_ints: Optional[dict[str, Optional[int]]]
 
 
 @dataclass
@@ -339,6 +339,50 @@ def test_generate_kwargs():
                     True,
                     CollectionType.OPTIONAL_SET,
                 ),
+                PropertyGenerationDetails(
+                    "dict_ints",
+                    dict[str, int],
+                    str,
+                    True,
+                    False,
+                    CollectionType.REQUIRED_DICT,
+                    int,
+                    True,
+                    False,
+                ),
+                PropertyGenerationDetails(
+                    "dict_optional_ints",
+                    dict[str, Optional[int]],
+                    str,
+                    True,
+                    False,
+                    CollectionType.REQUIRED_DICT,
+                    int,
+                    True,
+                    True,
+                ),
+                PropertyGenerationDetails(
+                    "optional_dict",
+                    Optional[dict[str, int]],
+                    str,
+                    True,
+                    False,
+                    CollectionType.OPTIONAL_DICT,
+                    int,
+                    True,
+                    False,
+                ),
+                PropertyGenerationDetails(
+                    "optional_dict_optional_ints",
+                    Optional[dict[str, Optional[int]]],
+                    str,
+                    True,
+                    False,
+                    CollectionType.OPTIONAL_DICT,
+                    int,
+                    True,
+                    True,
+                ),
             ],
         ),
     ],
@@ -386,3 +430,13 @@ def test_generate_OptionalCollectionsClass_relationships():
     assert len(optional.optional_refs_vals) == 1 and list(optional.optional_refs_vals)[0] is None
     assert optional.optional_refs_list is None
     assert optional.optional_optional_refs is None
+
+    assert_dict_type(str, int, all_set.dict_ints, count=1)
+    assert_dict_type(str, int, all_set.dict_optional_ints, count=1)
+    assert_dict_type(str, int, all_set.optional_dict, count=1)
+    assert_dict_type(str, int, all_set.optional_dict_optional_ints, count=1)
+
+    assert_dict_type(str, int, optional.dict_ints, count=1)
+    assert len(optional.dict_optional_ints) == 1 and list(optional.dict_optional_ints.values()) == [None]
+    assert optional.optional_dict is None
+    assert optional.optional_dict_optional_ints is None

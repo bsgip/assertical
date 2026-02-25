@@ -46,8 +46,6 @@ except ImportError:
 
 from enum import IntEnum, auto
 
-print("IMPORTING FROM GENERATOR.PY")
-
 
 class CollectionType(IntEnum):
     """Describes a type of collection that can hold a type that can be generated"""
@@ -94,6 +92,7 @@ class PropertyGenerationDetails:
 
     second_type_to_generate: Optional[type] = None
     second_is_primitive_type: Optional[bool] = None
+    second_is_optional: Optional[bool] = None
 
 
 @dataclass
@@ -341,6 +340,7 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
         is_primitive: bool = False
         second_type_to_generate: Optional[type] = None
         second_is_primitive: Optional[bool] = None
+        second_is_optional: Optional[bool] = None
 
         if member_name in type_hints:
             declared_type = type_hints[member_name]
@@ -365,17 +365,11 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
                     collection_type = CollectionType.REQUIRED_DICT
 
             if collection_type is not None:
-                original_member_type = member_type
-                member_type = get_args(optional_arg_type)[0] if is_optional else get_args(member_type)[0]
-                optional_arg_type = get_optional_type_argument(member_type)
-                is_optional = optional_arg_type is not None
-
+                # Determine second argument (if required)
                 if collection_type in TWO_PARAMETER_COLLECTION_TYPES:
-                    second_member_type = (
-                        get_args(optional_arg_type)[1] if is_optional else get_args(original_member_type)[1]
-                    )
+                    second_member_type = get_args(optional_arg_type)[1] if is_optional else get_args(member_type)[1]
                     second_optional_arg_type = get_optional_type_argument(second_member_type)
-                    second_is_optional = optional_arg_type is not None
+                    second_is_optional = second_optional_arg_type is not None
                     if collection_type in (CollectionType.OPTIONAL_DICT, CollectionType.REQUIRED_DICT):
                         if is_generatable_type(second_member_type):
                             second_type_to_generate = get_first_generatable_primitive(
@@ -389,6 +383,11 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
                             second_type_to_generate = (
                                 second_optional_arg_type if second_is_optional else second_member_type
                             )
+
+                # Determine first argument
+                member_type = get_args(optional_arg_type)[0] if is_optional else get_args(member_type)[0]
+                optional_arg_type = get_optional_type_argument(member_type)
+                is_optional = optional_arg_type is not None
 
             # Work around for SQLAlchemy forward references - hopefully we don't need many of these special cases
             #
@@ -422,6 +421,7 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
             collection_type=collection_type,
             second_type_to_generate=second_type_to_generate,
             second_is_primitive_type=second_is_primitive,
+            second_is_optional=second_is_optional,
         )
 
 
@@ -545,7 +545,7 @@ def generate_class_instance(  # noqa: C901
         elif collection_type == CollectionType.REQUIRED_SET or collection_type == CollectionType.OPTIONAL_SET:
             values[member.name] = set([]) if empty_collection else set([generated_value])
         elif collection_type == CollectionType.REQUIRED_DICT or collection_type == CollectionType.OPTIONAL_DICT:
-            if optional_is_none and member.is_optional:
+            if optional_is_none and member.second_is_optional:
                 # In this case the parent collection is NOT able to be set to None but does support adding items
                 # that are None - so we just add a None to the parent collection (or just generate None)
                 second_generated_value = None
