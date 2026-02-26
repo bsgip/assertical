@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import json
 
 import pytest
 from fastapi import FastAPI
@@ -29,7 +30,24 @@ def generate_test_app():
     async def hello_world():
         return {"msg": "Hello World"}
 
+    @test_app.post("/hello_world")
+    async def hello_world_create():
+        return None
+
     return test_app
+
+@pytest.mark.anyio
+async def test_client_content_type_set():
+    """Ensures that a request content-type header is only set for bodied requests."""
+    app = generate_test_app()
+
+    async with start_app_with_client(app) as client:
+        body = json.dumps({"msg": "hello world"})
+        response = await client.post("/hello_world", content=body)
+        assert response.request.headers.get("content-type") == "application/json"
+        
+        response = await client.get("/hello_world")
+        assert not response.request.headers.get("content-type")
 
 
 @pytest.mark.parametrize("multi_iteration", [1, 2, 3])
