@@ -487,6 +487,14 @@ def generate_class_instance(  # noqa: C901
                     f"Type {t} has property {member.name} with type {member.declared_type} that cannot be generated"
                 )
 
+        if member.collection_type in (CollectionType.REQUIRED_DICT, CollectionType.OPTIONAL_DICT):
+            if member.second_type_to_generate is None and not (
+                optional_is_none and member.collection_type == CollectionType.OPTIONAL_DICT
+            ):
+                raise Exception(
+                    f"Type {t} has property {member.name} with type {member.declared_type} that cannot be generated"
+                )
+
         generated_value: Any = None
         empty_collection: bool = False
         collection_type: Optional[CollectionType] = member.collection_type

@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, time
-from typing import Generator, Optional
+from typing import Any, Generator, Optional
 from pathlib import Path
 
 import pytest
@@ -102,6 +102,25 @@ def test_dataclass_with_ungeneratable_type():
 
     # Check optional_is_none allows by-passing ungeneratable types
     generate_class_instance(DataclassWithUngeneratableType, optional_is_none=True)
+
+
+def test_dataclass_with_ungeneratable_dict_value_type():
+    """dict[str, Any] has an unresolvable value type - should raise a clear error, not crash cryptically."""
+
+    @dataclass
+    class DataclassWithUngeneratableDict:
+        d: dict[str, Any]
+
+    with pytest.raises(Exception, match="cannot be generated"):
+        generate_class_instance(DataclassWithUngeneratableDict, generate_relationships=True)
+
+    # Optional dict with optional_is_none=True should be bypassed (set to None) without raising
+    @dataclass
+    class DataclassWithOptionalUngeneratableDict:
+        d: Optional[dict[str, Any]]
+
+    result = generate_class_instance(DataclassWithOptionalUngeneratableDict, optional_is_none=True)
+    assert result.d is None
 
 
 def test_collections_dataclass():
