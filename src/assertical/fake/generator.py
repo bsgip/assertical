@@ -59,7 +59,10 @@ class CollectionType(IntEnum):
 
 
 SUPPORTED_COLLECTION_TYPES = {list, dict, set}
-TWO_PARAMETER_COLLECTION_TYPES: set[CollectionType] = {CollectionType.OPTIONAL_DICT, CollectionType.REQUIRED_DICT}
+TWO_PARAMETER_COLLECTION_TYPES: set[CollectionType] = {
+    CollectionType.OPTIONAL_DICT,
+    CollectionType.REQUIRED_DICT,
+}
 
 
 @dataclass
@@ -309,7 +312,9 @@ def is_member_public(member_name: str) -> bool:
     return len(member_name) > 0 and member_name[0] != "_"
 
 
-def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, None, None]:  # noqa: C901
+def enumerate_class_properties(  # noqa: C901
+    t: type,
+) -> Generator[PropertyGenerationDetails, None, None]:
     """Iterates through type t's properties returning the PropertyGenerationDetails for each discovered property.
 
     Only "public" properties that don't exist on the BaseType will be returned
@@ -326,7 +331,6 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
     type_hints = TYPE_HINT_FETCHER[t_generatable_base](t)
 
     for member_name in CLASS_MEMBER_FETCHERS[t_generatable_base](t):
-
         # Skip members that are private OR that are public members of the base class
         if not is_member_public(member_name):
             continue
@@ -370,7 +374,10 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
                     second_member_type = get_args(optional_arg_type)[1] if is_optional else get_args(member_type)[1]
                     second_optional_arg_type = get_optional_type_argument(second_member_type)
                     second_is_optional = second_optional_arg_type is not None
-                    if collection_type in (CollectionType.OPTIONAL_DICT, CollectionType.REQUIRED_DICT):
+                    if collection_type in (
+                        CollectionType.OPTIONAL_DICT,
+                        CollectionType.REQUIRED_DICT,
+                    ):
                         if is_generatable_type(second_member_type):
                             second_type_to_generate = get_first_generatable_primitive(
                                 second_member_type, include_optional=False
@@ -425,41 +432,25 @@ def enumerate_class_properties(t: type) -> Generator[PropertyGenerationDetails, 
         )
 
 
-def generate_class_instance(  # noqa: C901
+def _generate_class_instance_with_seed(  # noqa: C901
     t: type[AnyType],
-    seed: int = 1,
-    optional_is_none: bool = False,
-    generate_relationships: bool = False,
-    _return_seed: bool = False,
-    _visited_type_stack: Optional[list[type]] = None,
+    seed: int,
+    optional_is_none: bool,
+    generate_relationships: bool,
+    visited_type_stack: Optional[list[type]],
     **kwargs: Any,
-) -> Union[AnyType, tuple[AnyType, int]]:
-    """Given a child class of a key to CLASS_INSTANCE_GENERATORS - generate an instance of that class
-    with all properties being assigned unique values based off of seed. The values will match type hints
-
-    Any "private" members beginning with '_' will be skipped
-
-    generate_relationships will recursively generate relationships generating instances as required. (SQL ALchemy
-    will handle assigning backreferences too)
-
-    If the type cannot be instantiated due to missing type hints / other info exceptions will be raised
-
-    Any additional specified "kwargs" will override the generated members. Eg generate_class_instance(Foo, my_arg="123")
-    will generate a new instance of Foo as per normal but the named member "my_arg" will have value "123". Please note
-    that this will change the way remaining values are allocated such that:
-        generate_class_instance(Foo, my_arg="123") != (generate_class_instance(Foo).my_arg = "123")
-    Specifying an invalid member name will raise an Exception
-
-    _visited_type_stack should not be specified - it's for internal use only"""
+) -> tuple[AnyType, int]:
+    """Internal function - performs the work of generate_class_instance but returns each generated type with an updated
+    seed value"""
     t = remove_passthrough_type(t)
 
     # stop back references from infinite looping
-    if _visited_type_stack is None:
-        _visited_type_stack = []
-    if t in _visited_type_stack:
+    if visited_type_stack is None:
+        visited_type_stack = []
+    if t in visited_type_stack:
         # This only happens in recursion - the top level object will never be None
-        return (None, seed) if _return_seed else None  # type: ignore
-    _visited_type_stack.append(t)
+        return (None, seed)  # type: ignore
+    visited_type_stack.append(t)
 
     # We can only generate class instances of classes that inherit from a known base
     t_generatable_base = get_generatable_class_base(t)
@@ -473,7 +464,6 @@ def generate_class_instance(  # noqa: C901
     kwargs_references: set[str] = set()  # For making sure we use all kwargs values to catch typos
 
     for member in enumerate_class_properties(t):
-
         # If there is a custom override for a member - apply it before going any further
         if member.name in kwargs:
             values[member.name] = kwargs[member.name]
@@ -487,7 +477,10 @@ def generate_class_instance(  # noqa: C901
                     f"Type {t} has property {member.name} with type {member.declared_type} that cannot be generated"
                 )
 
-        if member.collection_type in (CollectionType.REQUIRED_DICT, CollectionType.OPTIONAL_DICT):
+        if member.collection_type in (
+            CollectionType.REQUIRED_DICT,
+            CollectionType.OPTIONAL_DICT,
+        ):
             if member.second_type_to_generate is None and not (
                 optional_is_none and member.collection_type == CollectionType.OPTIONAL_DICT
             ):
@@ -495,26 +488,31 @@ def generate_class_instance(  # noqa: C901
                     f"Type {t} has property {member.name} with type {member.declared_type} that cannot be generated"
                 )
 
-        generated_value: Any = None
         empty_collection: bool = False
         collection_type: Optional[CollectionType] = member.collection_type
 
         def generate_member(
-            is_primitive_type: bool, type_to_generate: type, current_seed: int, empty_collection: bool
+            is_primitive_type: bool,
+            type_to_generate: type,
+            current_seed: int,
+            empty_collection: bool,
         ) -> tuple[Any, int, bool]:
             if is_primitive_type:
-                generated_value = generate_value(type_to_generate, seed=current_seed, optional_is_none=optional_is_none)
+                generated_value = generate_value(
+                    type_to_generate,
+                    seed=current_seed,
+                    optional_is_none=optional_is_none,
+                )
                 current_seed += 1
             else:
                 generated_value = None
                 if generate_relationships:
-                    generated_value, current_seed = generate_class_instance(
+                    generated_value, current_seed = _generate_class_instance_with_seed(
                         type_to_generate,
                         seed=current_seed,
                         optional_is_none=optional_is_none,
                         generate_relationships=generate_relationships,
-                        _visited_type_stack=_visited_type_stack,
-                        _return_seed=True,
+                        visited_type_stack=visited_type_stack,
                     )
 
                 # None can be generated when Type A has child B that includes a backreference to A. in these
@@ -528,7 +526,11 @@ def generate_class_instance(  # noqa: C901
 
         if optional_is_none and (
             member.collection_type
-            in [CollectionType.OPTIONAL_LIST, CollectionType.OPTIONAL_SET, CollectionType.OPTIONAL_DICT]
+            in [
+                CollectionType.OPTIONAL_LIST,
+                CollectionType.OPTIONAL_SET,
+                CollectionType.OPTIONAL_DICT,
+            ]
         ):
             # We can short circuit some generation if we know the top level collection should be None
             # In this case - we just set everything to None
@@ -573,10 +575,44 @@ def generate_class_instance(  # noqa: C901
     if kwargs_references != expected_kwargs_references:
         raise Exception(f"The following kwargs were unused {expected_kwargs_references.difference(kwargs_references)}")
 
-    _visited_type_stack.pop()  # When we finish generating a type, allow recursion back into that type
+    visited_type_stack.pop()  # When we finish generating a type, allow recursion back into that type
 
     instance = CLASS_INSTANCE_GENERATORS[t_generatable_base](t, values)
-    return (instance, current_seed) if _return_seed else instance
+    return (instance, current_seed)
+
+
+def generate_class_instance(  # noqa: C901
+    t: type[AnyType],
+    seed: int = 1,
+    optional_is_none: bool = False,
+    generate_relationships: bool = False,
+    **kwargs: Any,
+) -> AnyType:
+    """Given a child class of a key to CLASS_INSTANCE_GENERATORS - generate an instance of that class
+    with all properties being assigned unique values based off of seed. The values will match type hints
+
+    Any "private" members beginning with '_' will be skipped
+
+    generate_relationships will recursively generate relationships generating instances as required. (SQL ALchemy
+    will handle assigning backreferences too)
+
+    If the type cannot be instantiated due to missing type hints / other info exceptions will be raised
+
+    Any additional specified "kwargs" will override the generated members. Eg generate_class_instance(Foo, my_arg="123")
+    will generate a new instance of Foo as per normal but the named member "my_arg" will have value "123". Please note
+    that this will change the way remaining values are allocated such that:
+        generate_class_instance(Foo, my_arg="123") != (generate_class_instance(Foo).my_arg = "123")
+    Specifying an invalid member name will raise an Exception"""
+
+    result, _ = _generate_class_instance_with_seed(
+        t,
+        seed=seed,
+        optional_is_none=optional_is_none,
+        generate_relationships=generate_relationships,
+        visited_type_stack=[],
+        **kwargs,
+    )
+    return result
 
 
 def clone_class_instance(obj: AnyType, ignored_properties: Optional[set[str]] = None) -> AnyType:
@@ -696,7 +732,8 @@ register_value_generator(float, lambda seed: float(seed))
 register_value_generator(bool, lambda seed: (seed % 2) == 0)
 register_value_generator(Decimal, lambda seed: Decimal(seed))
 register_value_generator(
-    datetime, lambda seed: datetime(2010, 1, 1, tzinfo=timezone.utc) + timedelta(days=seed) + timedelta(seconds=seed)
+    datetime,
+    lambda seed: (datetime(2010, 1, 1, tzinfo=timezone.utc) + timedelta(days=seed) + timedelta(seconds=seed)),
 )
 register_value_generator(time, lambda seed: time(seed % 24, seed % 60, (seed + 1) % 60))
 register_value_generator(timedelta, lambda seed: timedelta(seconds=seed))
