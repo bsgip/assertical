@@ -634,7 +634,6 @@ def generate_class_instance(  # noqa: C901
     seed: int = 1,
     optional_is_none: bool = False,
     generate_relationships: bool = False,
-    _visited_type_stack: Optional[list[type]] = None,
     **kwargs: Any,
 ) -> AnyType:
     """Given a child class of a key to CLASS_INSTANCE_GENERATORS - generate an instance of that class
