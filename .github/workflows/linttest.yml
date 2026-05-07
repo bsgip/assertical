@@ -33,7 +33,7 @@ jobs:
       - name: Typing (ty)
         run: ty check .
       - name: Security scan (bandit)
-        run: bandit -r src/
+        run: bandit -c pyproject.toml -r src/
 
   pytest:
     runs-on: ubuntu-latest
