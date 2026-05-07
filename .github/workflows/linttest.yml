@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: ${{ matrix.pyver }}
       - name: Install linters
-        run: pip install -e .[dev,test]
+        run: pip install -e .[all]
 
       - name: Lint (ruff)
         run: ruff check .
@@ -54,7 +54,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install .[test]
+          pip install .[all]
 
       - name: Run Pytest
         run: pytest
