@@ -11,7 +11,7 @@ from assertical.fixtures.environment import (
 NEVER_EXISTS_NAME = "92y539hgf3_123akjh"
 ALWAYS_EXISTS_NAME = "PATH"
 if ALWAYS_EXISTS_NAME not in os.environ:
-    ALWAYS_EXISTS_NAME = os.environ.keys()[0]
+    ALWAYS_EXISTS_NAME = os.environ.keys()[0]  # type: ignore
 
 
 @pytest.mark.parametrize(
@@ -36,10 +36,8 @@ def test_environment_snapshot(kvps: list[tuple[str, Optional[str]]]):
 
     # update our environment
     with environment_snapshot():
-
         # Mess with the environment
         for k, v in kvps:
-
             # Make the change
             if v is None:
                 delete_environment_variable(k)

@@ -50,7 +50,7 @@ def test_snapshot_kvp_store_docs_example():
     with snapshot_kvp_store(
         lambda: dict(MY_KEY_VALUE_STORE),  # The snapshot function
         lambda k, v: MY_KEY_VALUE_STORE.update({k: v}),  # The update function
-        lambda k: MY_KEY_VALUE_STORE.pop(k),  # The delete function
+        lambda k: MY_KEY_VALUE_STORE.pop(k),  # The delete function # type: ignore
     ):
         # Upon entering - nothing has changed
         assert MY_KEY_VALUE_STORE == {"a": 1, "b": 2}

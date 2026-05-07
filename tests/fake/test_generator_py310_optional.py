@@ -5,8 +5,8 @@ import sys
 if sys.version_info >= (3, 10):
     # This entire file is only relevant for py310 and greater
 
+    from collections.abc import Generator
     from dataclasses import dataclass
-    from typing import Generator
 
     import pytest
 

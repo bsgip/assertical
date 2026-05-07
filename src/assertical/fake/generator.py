@@ -1,5 +1,6 @@
 import inspect
 import sys
+from collections.abc import Generator
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
@@ -7,7 +8,6 @@ from enum import Enum
 from typing import (
     Any,
     Callable,
-    Generator,
     Optional,
     TypeVar,
     Union,
@@ -17,15 +17,15 @@ from typing import (
 )
 
 try:
-    from types import NoneType
+    from types import NoneType  # type: ignore
 except ImportError:
-    NoneType = type(None)  # type: ignore
+    NoneType = type(None)
 
 
 try:
-    from types import UnionType
+    from types import UnionType  # type: ignore
 except ImportError:
-    UnionType = type(None)  # type: ignore
+    UnionType = type(None)
 
 try:
     from pydantic import BaseModel
@@ -149,7 +149,8 @@ def get_enum_type(t: Optional[type], include_optional: bool) -> Optional[type]:
     if is_optional_type(t):
         optional = True
         inner_enum_type = get_optional_type_argument(t)
-        assert inner_enum_type is not None
+        if inner_enum_type is None:
+            raise ValueError(f"enum type {t} could not be decomposed from its Optional[enum] value.")
 
     t_origin = get_origin(t)
     is_union = (t_origin == Union or t_origin == UnionType) and len([a for a in get_args(t) if a is not NoneType]) > 1
@@ -158,7 +159,7 @@ def get_enum_type(t: Optional[type], include_optional: bool) -> Optional[type]:
             arg_enum = get_enum_type(union_arg, include_optional)
             if arg_enum is not None:
                 if optional and include_optional:
-                    return Optional[arg_enum]  # type: ignore
+                    return Optional[arg_enum]
                 else:
                     return arg_enum
     elif safe_is_subclass(inner_enum_type, Enum):
@@ -230,7 +231,7 @@ def get_first_generatable_primitive(t: type, include_optional: bool) -> Optional
         for union_arg in get_args(t):
             prim_type = get_first_generatable_primitive(union_arg, include_optional=False)
             if prim_type is not None:
-                return Optional[prim_type] if include_optional_type else prim_type  # type: ignore
+                return Optional[prim_type] if include_optional_type else prim_type
 
     return None
 
@@ -382,9 +383,10 @@ def enumerate_class_properties(  # noqa: C901
                             second_type_to_generate = get_first_generatable_primitive(
                                 second_member_type, include_optional=False
                             )
-                            assert (
-                                second_type_to_generate is not None
-                            ), f"Error generating member {member_name}. Couldn't find type for {second_member_type}"
+                            if second_type_to_generate is None:
+                                raise ValueError(
+                                    f"Error generating member {member_name}. Couldnt find type for {second_member_type}"
+                                )
                             second_is_primitive = True
                         elif get_generatable_class_base(second_member_type) is not None:
                             second_type_to_generate = (
@@ -403,16 +405,16 @@ def enumerate_class_properties(  # noqa: C901
             # Currently we're digging around in the guts of the Base registry - there maybe an official way to do this?
             if t_generatable_base == DeclarativeBase:
                 if isinstance(member_type, str):
-                    member_type = t.registry._class_registry[member_type]
+                    member_type = t.registry._class_registry[member_type]  # type: ignore
             if t_generatable_base == DeclarativeBaseNoMeta:
                 if isinstance(member_type, str):
-                    member_type = t.registry._class_registry[member_type]
+                    member_type = t.registry._class_registry[member_type]  # type: ignore
 
             if is_generatable_type(member_type):
                 type_to_generate = get_first_generatable_primitive(member_type, include_optional=False)
-                assert (
-                    type_to_generate is not None
-                ), f"Error generating member {member_name}. Couldn't find type for {member_type}"
+                if type_to_generate is None:
+                    raise ValueError(f"Error generating member {member_name}. Couldn't find type for {member_type}")
+
                 is_primitive = True
             elif get_generatable_class_base(member_type) is not None:
                 type_to_generate = optional_arg_type if is_optional else member_type
@@ -442,7 +444,7 @@ def _generate_class_instance_with_seed(  # noqa: C901
 ) -> tuple[AnyType, int]:
     """Internal function - performs the work of generate_class_instance but returns each generated type with an updated
     seed value"""
-    t = remove_passthrough_type(t)
+    t = remove_passthrough_type(t)  # type: ignore
 
     # stop back references from infinite looping
     if visited_type_stack is None:
@@ -733,7 +735,7 @@ register_value_generator(bool, lambda seed: (seed % 2) == 0)
 register_value_generator(Decimal, lambda seed: Decimal(seed))
 register_value_generator(
     datetime,
-    lambda seed: (datetime(2010, 1, 1, tzinfo=timezone.utc) + timedelta(days=seed) + timedelta(seconds=seed)),
+    lambda seed: datetime(2010, 1, 1, tzinfo=timezone.utc) + timedelta(days=seed) + timedelta(seconds=seed),
 )
 register_value_generator(time, lambda seed: time(seed % 24, seed % 60, (seed + 1) % 60))
 register_value_generator(timedelta, lambda seed: timedelta(seconds=seed))

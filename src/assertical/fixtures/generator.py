@@ -1,5 +1,5 @@
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 from assertical.fake.generator import (
     BASE_CLASS_PUBLIC_MEMBERS,

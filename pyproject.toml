@@ -1,28 +1,31 @@
-[tool.black]
-line-length = 120
-
 [tool.pytest.ini_options]
 pythonpath = ["src/"]
 testpaths = "tests"
-
-[tool.isort]
-profile = "black"
 
 [tool.bandit]
 exclude_dirs = ["tests"]
 skips = ["B101"]
 
-[tool.mypy]
-exclude = ["tests"]
-check_untyped_defs = true
-disallow_incomplete_defs = true
-disallow_untyped_calls = true
-disallow_untyped_decorators = true
-disallow_untyped_defs = true
-namespace_packages = true
-warn_redundant_casts = true
-warn_unused_ignores = true
+[tool.ruff]
+line-length = 120
 
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "S", "C90", "B", "UP", "ANN", "N"]
+ignore = ["E721", "B017", "UP035", "E731", "UP045"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.per-file-ignores]
+"src/**" = ["ANN401"]
+"**/asserts/**" = ["S101", "B011"]
+"tests/**" = ["S", "ANN", "N"]
+
+[tool.ty.src]
+include = ["src", "tests"]
+
+[tool.ty.rules]
+invalid-type-form = "ignore"
 
 [build-system]
 requires = ["setuptools >= 40.9.0", "wheel"]
@@ -60,7 +63,7 @@ Homepage = "https://github.com/bsgip/assertical"
 
 [project.optional-dependencies]
 all = ["assertical[dev,fastapi,pandas,pydantic,postgres,xml]"]
-dev = ["bandit", "flake8", "mypy", "black", "coverage"]
+dev = ["bandit", "ruff", "ty", "coverage"]
 fastapi = ["fastapi[standard]", "asgi_lifespan", "uvicorn"]
 pandas = ["pandas", "pandas_stubs", "numpy"]
 pydantic = ["pydantic"]

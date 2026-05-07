@@ -63,15 +63,15 @@ def assert_dataframe_contains(
         query = " & ".join([f"`{k}`=={print_val(v)}" for k, v in col_values.items()])
         try:
             count = len(df.query(query))
-        except Exception:
-            raise AssertionError(f"Column(s) don't exist. col_values: {col_values}")
+        except Exception as exc:
+            raise AssertionError(f"Column(s) don't exist. col_values: {col_values}") from exc
 
     if expected_min_count is not None:
-        assert (
-            count >= expected_min_count
-        ), f"Expected at least {expected_min_count} match(es) for {query}\n{df[list(col_values.keys())].to_string()}"
+        assert count >= expected_min_count, (
+            f"Expected at least {expected_min_count} match(es) for {query}\n{df[list(col_values.keys())].to_string()}"
+        )
 
     if expected_max_count is not None:
-        assert (
-            count <= expected_max_count
-        ), f"Expected at most {expected_max_count} match(es) for {query}\n{df[list(col_values.keys())].to_string()}"
+        assert count <= expected_max_count, (
+            f"Expected at most {expected_max_count} match(es) for {query}\n{df[list(col_values.keys())].to_string()}"
+        )

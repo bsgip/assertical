@@ -1,6 +1,7 @@
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Callable, Generator
+from typing import Callable
 
 from assertical.snapshot import snapshot_kvp_store
 

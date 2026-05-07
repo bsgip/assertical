@@ -1,5 +1,6 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Optional
+from typing import Optional
 
 from psycopg import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine

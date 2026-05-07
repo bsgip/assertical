@@ -1,8 +1,9 @@
 import sys
+from collections.abc import Generator
 from datetime import datetime
 from enum import IntFlag, auto
 from itertools import product
-from typing import Generator, Optional
+from typing import Optional
 
 import pytest
 from sqlalchemy import (
@@ -247,9 +248,9 @@ def test_generate_sql_alchemy_instance_multi_relationships(optional_is_none: boo
         assert p1.children[0].long_name is not None
         assert p1.children[0].deleted_at is not None
     assert p1.children[0].parent is not None and p1.children[0].parent == p1, "Backreference should self reference"
-    assert (
-        p1.children[0].created_at != p1.children[0].deleted_at
-    ), "Checking that fields of the same type get unique values"
+    assert p1.children[0].created_at != p1.children[0].deleted_at, (
+        "Checking that fields of the same type get unique values"
+    )
     assert p1.children[0].long_name != p1.children[0].name, "Checking that fields of the same type get unique values"
 
     p2 = generate_class_instance(ParentClass, seed=2, generate_relationships=True, optional_is_none=optional_is_none)
@@ -264,18 +265,18 @@ def test_generate_sql_alchemy_instance_multi_relationships(optional_is_none: boo
         assert p2.children[0].long_name is not None
         assert p2.children[0].deleted_at is not None
     assert p2.children[0].parent is not None and p2.children[0].parent == p2, "Backreference should self reference"
-    assert (
-        p2.children[0].created_at != p2.children[0].deleted_at
-    ), "Checking that fields of the same type get unique values"
+    assert p2.children[0].created_at != p2.children[0].deleted_at, (
+        "Checking that fields of the same type get unique values"
+    )
     assert p2.children[0].long_name != p2.children[0].name, "Checking that fields of the same type get unique values"
-    assert (
-        p1.children[0].created_at != p2.children[0].created_at
-    ), "Checking that different seed numbers yields different results"
+    assert p1.children[0].created_at != p2.children[0].created_at, (
+        "Checking that different seed numbers yields different results"
+    )
 
     if not optional_is_none:
-        assert (
-            p1.children[0].deleted_at != p2.children[0].deleted_at
-        ), "Checking that different seed numbers yields different results"
+        assert p1.children[0].deleted_at != p2.children[0].deleted_at, (
+            "Checking that different seed numbers yields different results"
+        )
 
 
 def test_clone_class_instance_sql_alchemy():

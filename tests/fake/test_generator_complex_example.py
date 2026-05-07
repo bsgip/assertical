@@ -27,7 +27,6 @@ class Student(Base):
 
 
 class ReportCard(Base):
-
     __tablename__ = "_report_card"
 
     report_card_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -76,18 +75,18 @@ def test_generate_complex_relationships():
     report_card = student.report_cards[0]
     assert isinstance(report_card.english_result, EnglishResult)
     assert isinstance(report_card.math_result, MathResult)
-    assert report_card.student is None or id(report_card.student) == id(
-        student
-    ), "Back reference will not be populated by our code - SQLAlchemy might auto fill but that's OK"
+    assert report_card.student is None or id(report_card.student) == id(student), (
+        "Back reference will not be populated by our code - SQLAlchemy might auto fill but that's OK"
+    )
 
     english_result = report_card.english_result
-    assert english_result.report_card is None or id(english_result.report_card) == id(
-        report_card
-    ), "Back reference will not be populated by our code - SQLAlchemy might auto fill but that's OK"
+    assert english_result.report_card is None or id(english_result.report_card) == id(report_card), (
+        "Back reference will not be populated by our code - SQLAlchemy might auto fill but that's OK"
+    )
 
     math_result = report_card.math_result
-    assert math_result.report_card is None or id(math_result.report_card) == id(
-        report_card
-    ), "Back reference will not be populated by our code - SQLAlchemy might auto fill but that's OK"
+    assert math_result.report_card is None or id(math_result.report_card) == id(report_card), (
+        "Back reference will not be populated by our code - SQLAlchemy might auto fill but that's OK"
+    )
 
     assert english_result.grade != math_result.grade, "Values should be using unique seeds"

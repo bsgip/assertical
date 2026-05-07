@@ -1,6 +1,7 @@
 import asyncio
+from collections.abc import AsyncGenerator, Awaitable
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Awaitable, Optional
+from typing import Any, Optional
 
 import uvicorn
 from asgi_lifespan import LifespanManager
@@ -15,7 +16,7 @@ class UvicornTestServer(uvicorn.Server):
 
     Originally adapted from https://github.com/miguelgrinberg/python-socketio/issues/332#issuecomment-712928157"""
 
-    def __init__(self, app: FastAPI, host: str, port: int = 13842):
+    def __init__(self, app: FastAPI, host: str, port: int = 13842) -> None:
         """Create a Uvicorn test server
 
         Args:

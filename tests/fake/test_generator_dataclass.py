@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from datetime import datetime, time
-from typing import Any, Generator, Optional
 from pathlib import Path
+from typing import Any, Optional
 
 import pytest
 
