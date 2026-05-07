@@ -2,17 +2,17 @@ from asyncio import Semaphore, TimeoutError, wait_for
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 from httpx import Response
 from httpx._types import HeaderTypes, RequestContent
 
 # HTTPMethod is only defined in python >= 3.11
 try:
-    from http import HTTPMethod
+    from http import HTTPMethod  # type: ignore
 except ImportError:
 
-    class HTTPMethod(Enum):  # type: ignore
+    class HTTPMethod(Enum):
         DELETE = auto()
         GET = auto()
         HEAD = auto()
@@ -58,7 +58,7 @@ class MockedAsyncClient:
         self.call_count_by_method_uri = {}
 
         if isinstance(result, dict):
-            self.results_by_uri = result
+            self.results_by_uri = cast(dict, result)
             self.result = None
         else:
             self.results_by_uri = {}
@@ -79,7 +79,7 @@ class MockedAsyncClient:
 
         if isinstance(result, list):
             if len(result) > 0:
-                next_result = result.pop(0)
+                next_result = cast(Union[Response, Exception], result.pop(0))
                 return self._raise_or_return(next_result)
             else:
                 raise Exception("Mocking error - no more responses/errors in list.")
@@ -191,7 +191,6 @@ class MockedAsyncClient:
 
         Returns True if a request was "consumed" or False if the timeout was hit"""
         try:
-
             await wait_for(self.request_semaphore.acquire(), timeout_seconds)
         except TimeoutError:
             return False

@@ -14,9 +14,9 @@ def assert_fuzzy_datetime_match(
         actual_time = datetime.fromtimestamp(float(actual_time))
 
     delta_seconds = expected_time.timestamp() - actual_time.timestamp()
-    assert (
-        abs(delta_seconds) <= fuzziness_seconds
-    ), f"Expected {expected_time} to be within {fuzziness_seconds} of {actual_time} but it was {delta_seconds}"
+    assert abs(delta_seconds) <= fuzziness_seconds, (
+        f"Expected {expected_time} to be within {fuzziness_seconds} of {actual_time} but it was {delta_seconds}"
+    )
 
 
 def assert_nowish(expected_time: Union[int, float, datetime], fuzziness_seconds: int = 20) -> None:

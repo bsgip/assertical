@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 import pytest
 

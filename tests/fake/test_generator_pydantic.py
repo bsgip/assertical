@@ -10,7 +10,6 @@ from assertical.fake.generator import generate_class_instance
 
 
 class ChildType(BaseModel):
-
     child_id: int
     period_start: datetime
     duration_seconds: int

@@ -1,8 +1,9 @@
 import sys
+from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import IntEnum, IntFlag, auto
-from typing import Generator, List, Optional, Union
+from enum import Enum, IntEnum, IntFlag, auto
+from typing import List, Optional, Union
 
 import pytest
 from sqlalchemy.orm import Mapped
@@ -147,7 +148,7 @@ def test_get_enum_type_with_enums_py310_optional(t):
 
 
 @pytest.mark.parametrize("t", ALL_ENUM_TYPES)
-def test_generate_value_enums(t: type):
+def test_generate_value_enums(t: type[Enum]):
     """Tests that generate_value plays nice with enum values"""
 
     COUNT = len(t) * 3
@@ -269,7 +270,7 @@ def test_is_generatable_type():
 
     # check collections
     assert not is_generatable_type(Optional[list[ReferenceDataclass]])
-    assert not is_generatable_type(Optional[List[ReferenceDataclass]])
+    assert not is_generatable_type(Optional[List[ReferenceDataclass]])  # noqa: UP006
     assert not is_generatable_type(list[ReferenceDataclass])
     assert not is_generatable_type(list[int])
     assert not is_generatable_type(set[datetime])

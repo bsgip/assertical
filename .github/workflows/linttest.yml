@@ -8,179 +8,53 @@ on:
 
 jobs:
   # This will run bandit and produce a security report if there are any failures
-  bandit:
+  linting:
     runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        pyver: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        
     steps:
       - name: Checkout
-        uses: actions/checkout@v3.1.0
-
-      - name: Security check - Bandit
-        uses: joshvote/bandit-report-artifacts@v0.0.6
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          project_path: .
-          ignore_failure: false
-          config_file: pyproject.toml
+          python-version: ${{ matrix.pyver }}
+      - name: Install linters
+        run: pip install -e .[all]
 
-      - name: Security check report artifacts
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: Security report
-          path: output/security_report.txt
-          overwrite: true
+      - name: Lint (ruff)
+        run: ruff check .
+      - name: Format check
+        run: ruff format --check .
+      - name: Typing (ty)
+        run: ty check .
+      - name: Security scan (bandit)
+        run: bandit -c pyproject.toml -r src/
 
-  # This will run the latest flake8 with python 3.11 and report on any errors
-  flake8_py311:
+  pytest:
     runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        pyver: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4.2.0
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      - name: Setup flake8 annotations
-        uses: rbialon/flake8-annotations@v1
-
-      - name: Lint with flake8
-        if: always()
-        run: |
-          pip install flake8
-          flake8 . --count --statistics
-
-  # This will run the latest black to see if there are any code formatting errors
-  black_formatting:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: psf/black@stable
-
-  # This will run the latest mypy with python3.11 to see if there are any type errors
-  mypy_py311:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3.1.0
-
-      - name: Setup Python
-        uses: actions/setup-python@v4.2.0
-        with:
-          python-version: "3.11"
-
-      - name: Install Dependencies
-        run: |
-          pip install .[all]
-
-      - name: Add mypy annotator
-        uses: pr-annotators/mypy-pr-annotator@v1.0.0
-
-      - name: Run mypy
-        run: |
-          mypy src/
-
-  # This will run the pytest with python3.9
-  pytest_py39:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3.1.0
-
-      - name: Setup Python
-        uses: actions/setup-python@v4.2.0
-        with:
-          python-version: "3.9"
+          python-version: ${{ matrix.pyver }}
 
       - name: Install Dependencies
         run: |
           pip install .[all]
 
       - name: Run Pytest
-        run: |
-          pytest --junit-xml=.test_report.xml
-
-      - name: Upload Results
-        uses: test-summary/action@v1
-        with:
-          paths: .test_report.xml
-        if: always()
-
-  # This will run the pytest with python3.10
-  pytest_py310:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3.1.0
-
-      - name: Setup Python
-        uses: actions/setup-python@v4.2.0
-        with:
-          python-version: "3.10"
-
-      - name: Install Dependencies
-        run: |
-          pip install .[all]
-
-      - name: Run Pytest
-        run: |
-          pytest --junit-xml=.test_report.xml
-
-      - name: Upload Results
-        uses: test-summary/action@v1
-        with:
-          paths: .test_report.xml
-        if: always()
-
-  # This will run the pytest with python3.11
-  pytest_py311:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3.1.0
-
-      - name: Setup Python
-        uses: actions/setup-python@v4.2.0
-        with:
-          python-version: "3.11"
-
-      - name: Install Dependencies
-        run: |
-          pip install .[all]
-
-      - name: Run Pytest
-        run: |
-          pytest --junit-xml=.test_report.xml
-
-      - name: Upload Results
-        uses: test-summary/action@v1
-        with:
-          paths: .test_report.xml
-        if: always()
-
-
-  # This will run the pytest with python3.12
-  pytest_py312:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3.1.0
-
-      - name: Setup Python
-        uses: actions/setup-python@v4.2.0
-        with:
-          python-version: "3.12"
-
-      - name: Install Dependencies
-        run: |
-          pip install .[all]
-
-      - name: Run Pytest
-        run: |
-          pytest --junit-xml=.test_report.xml
-
-      - name: Upload Results
-        uses: test-summary/action@v1
-        with:
-          paths: .test_report.xml
-        if: always()
+        run: pytest

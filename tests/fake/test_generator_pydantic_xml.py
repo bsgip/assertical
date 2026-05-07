@@ -1,5 +1,6 @@
 import sys
-from typing import Generator, Optional, Union
+from collections.abc import Generator
+from typing import Optional, Union
 
 import pytest
 from pydantic_xml import BaseXmlModel, element
@@ -224,7 +225,7 @@ def test_check_class_instance_equality():
     # check a single property being out
     expected = generate_class_instance(FurtherXmlClass, seed=1, generate_relationships=False, optional_is_none=True)
     actual = generate_class_instance(FurtherXmlClass, seed=1, generate_relationships=False, optional_is_none=True)
-    actual.myStr = actual.myStr + "-changed"
+    actual.myStr = actual.myStr + "-changed"  # type: ignore
     assert (
         len(
             check_class_instance_equality(

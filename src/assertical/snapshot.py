@@ -1,5 +1,6 @@
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Callable, Generator, TypeVar, cast
+from typing import Callable, TypeVar, cast
 
 KeyType = TypeVar("KeyType")
 ValueType = TypeVar("ValueType")
@@ -48,7 +49,7 @@ def snapshot_kvp_store(
     # Firstly iterate the current environment to see what we need to rectify
     final_snapshot: dict[KeyType, ValueType] = snapshot()
     visited_keys = set()
-    for k, v in final_snapshot.items():
+    for k, _ in final_snapshot.items():
         visited_keys.add(k)
 
         if k in original_snapshot:

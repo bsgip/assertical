@@ -31,7 +31,7 @@ class MySimpleClass:
 class MyGenerationClass(MyBaseClass):
     my_id: int = 1
     my_str: str = "a"
-    my_simple_class: MySimpleClass = None
+    my_simple_class: MySimpleClass = None  # type: ignore
 
     def __init__(self, my_id: int, my_str: str, my_simple_class: MySimpleClass) -> None:
         super().__init__()
